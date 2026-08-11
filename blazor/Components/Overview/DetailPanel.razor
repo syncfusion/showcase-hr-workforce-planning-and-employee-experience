@@ -1,0 +1,339 @@
+@*
+  Port of src/screens/Overview/components/DetailPanel.tsx. Right-side
+  detail rail that combines:
+
+    - an AI Insight card (Generate / Dismiss / Create Action Plan)
+    - a Quick Actions list (always rendered; AI-supplied actions replace
+      the defaults when an insight is on screen)
+    - an Activity Timeline (pure-Blazor <ol> rather than <SfTimeline>
+      so the labels render without going through EJ2's broken-in-Blazor
+      string template engine — same workaround the React client uses)
+    - a "Create Action Plan" modal dialog
+    - a shared QuickActionDialog for all 5 Quick Action flows
+
+  All side-effects bubble up via callbacks: the parent `Overview` page
+  owns the SfToast so clipboard, dialog submissions, and AI
+  generate/dismiss share the same surface.
+*@
+
+@using BlazorWebApp.Components.Models
+@using BlazorWebApp.Services
+@inject IJSRuntime JS
+
+<div class="detail-panel">
+    <div class="detail-panel__header">
+        <span class="detail-panel__title">Activity Insights</span>
+    </div>
+
+    <div class="detail-panel__ai-card e-card">
+        <div class="detail-panel__ai-row">
+            <span aria-hidden="true">⚡</span>
+            <span class="detail-panel__ai-label">AI Insight</span>
+
+            @* Close (X) button — only rendered once an insight is on
+               screen, so the empty/error/loading states stay clean.
+               Calls the parent's `OnDismissInsight` to clear the
+               insight and fall back to the "Generate AI Insight" CTA. *@
+            @if (HasInsight && OnDismissInsight.HasDelegate)
+            {
+                <button type="button"
+                        class="detail-panel__ai-dismiss"
+                        aria-label="Dismiss AI insight"
+                        title="Dismiss AI insight"
+                        @onclick="HandleDismiss">
+                    <span aria-hidden="true">×</span>
+                </button>
+            }
+        </div>
+
+        @if (HasInsight && AiInsight is not null)
+        {
+            <div class="detail-panel__ai-quote">@AiInsight.Notes</div>
+
+            @if (AiInsight.EngagementDrop > 0)
+            {
+                <div class="detail-panel__ai-drop">
+                    Engagement dropped @AiInsight.EngagementDrop% in @AiInsight.Quarter
+                </div>
+            }
+        }
+        else if (GeneratingInsight)
+        {
+            <div class="detail-panel__ai-status">
+                Analyzing activity, pulse, and career data with AI…
+            </div>
+        }
+        else if (InsightError is not null)
+        {
+            <div class="detail-panel__ai-error" role="alert">@InsightError</div>
+        }
+
+        @if (!HasInsight && !GeneratingInsight && OnGenerateInsight.HasDelegate)
+        {
+            <SfButton CssClass="e-primary e-small detail-panel__ai-cta"
+                      OnClick="HandleGenerate">
+                Generate AI Insight
+            </SfButton>
+        }
+        else if (HasInsight)
+        {
+            <SfButton CssClass="e-primary e-small detail-panel__ai-cta"
+                      OnClick="HandleOpenActionPlan">
+                Create Action Plan
+            </SfButton>
+        }
+    </div>
+
+    @* Quick Actions — always rendered, even without an AI insight, so
+       the sidebar is interactive from first paint. AI-supplied actions
+       replace the defaults; the `clipboard` kind fires the copy
+       side-effect immediately, every other kind opens the shared
+       QuickActionDialog. *@
+    <div class="detail-panel__section">
+        <span class="detail-panel__section-title">Quick Actions</span>
+        <div class="detail-panel__quick-actions">
+            @foreach (var action in QuickActions)
+            {
+                <SfButton CssClass="e-outline e-small"
+                          Content="@action.Label"
+                          OnClick="@(() => HandleQuickAction(action))" />
+            }
+        </div>
+    </div>
+
+    <div class="detail-panel__section">
+        <span class="detail-panel__section-title">Activity Timeline</span>
+        <div class="detail-panel__timeline">
+            <ol class="detail-timeline">
+                @for (var i = 0; i < Timeline.Length; i++)
+                {
+                    var evt = Timeline[i];
+                    var isLast = i == Timeline.Length - 1;
+                    <li class="detail-timeline__item">
+                        <span class="detail-timeline__dot" aria-hidden="true"></span>
+                        @if (!isLast)
+                        {
+                            <span class="detail-timeline__line" aria-hidden="true"></span>
+                        }
+                        <div class="detail-timeline__content">
+                            <div class="detail-timeline__title">@evt.Title</div>
+                            @if (!string.IsNullOrWhiteSpace(evt.Detail))
+                            {
+                                <div class="detail-timeline__detail">@evt.Detail</div>
+                            }
+                            <div class="detail-timeline__time">@evt.Timestamp</div>
+                        </div>
+                    </li>
+                }
+            </ol>
+        </div>
+    </div>
+
+    @* The Create Action Plan dialog lives in its own component
+       (ActionPlanDialog.razor) and is rendered by the parent
+       Overview page. Co-locating it here alongside the
+       QuickActionDialog caused Syncfusion's per-page dialog
+       renderer to mix the two dialogs' JS state, so opening a
+       Quick Action after closing the action plan dialog would
+       bring the action plan back on screen. Splitting them into
+       separate Blazor components puts each in its own render tree
+       and the renderer isolates them correctly. *@
+
+    @* Single dialog re-used for every Quick Action. Renders null until
+       the user clicks a Quick Action button. The parent owns the toast
+       surface and the clipboard side-effect, so clipboard and dialog
+       confirmations share the same feedback channel. *@
+    <QuickActionDialog ActiveCta="@_activeCta"
+                       DefaultEmployeeId="@_defaultEmployeeId"
+                       OnClose="@(() => _activeCta = null)"
+                       OnSubmit="@HandleDialogSubmit" />
+
+    @* Lightweight inline toast for clipboard / mailto / tel
+       confirmations that bypass the dialog. Auto-dismisses after 2.5s.
+       Dialog submissions surface through the SfToast in the parent
+       `Overview` page via `OnShowToast`. *@
+    @if (_inlineToast is not null)
+    {
+        <div class="detail-panel__toast"
+             role="status"
+             aria-live="polite"
+             @onclick="@(() => _inlineToast = null)">
+            @_inlineToast
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public ActivityTimelineEvent[] Timeline { get; set; } = Array.Empty<ActivityTimelineEvent>();
+    [Parameter] public AiInsight? AiInsight { get; set; }
+    [Parameter] public bool GeneratingInsight { get; set; }
+    [Parameter] public string? InsightError { get; set; }
+
+    [Parameter] public EventCallback OnGenerateInsight { get; set; }
+    [Parameter] public EventCallback OnDismissInsight { get; set; }
+    [Parameter] public EventCallback OnOpenActionPlan { get; set; }
+    [Parameter] public EventCallback<QuickActionResult> OnShowToast { get; set; }
+
+    private bool HasInsight => AiInsight is not null && !GeneratingInsight;
+    private IReadOnlyList<QuickAction> QuickActions => QuickActionConfig.ResolveActions(AiInsight?.Actions);
+    private string _defaultEmployeeId => QuickActionConfig.ResolveDefaultEmployeeId(AiInsight);
+
+    private QuickAction? _activeCta;
+    private string? _inlineToast;
+    private Microsoft.JSInterop.IJSObjectReference? _clipboardModule;
+    private System.Threading.Timer? _toastTimer;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        // Lazy-load the clipboard ESM module on first render. The
+        // module exposes a single `copyToClipboard(text)` function
+        // returning `true` on success and `false` on failure (no
+        // clipboard API, permission denied, non-secure context, etc.).
+        if (firstRender && _clipboardModule is null)
+        {
+            try
+            {
+                _clipboardModule = await JS.InvokeAsync<Microsoft.JSInterop.IJSObjectReference>(
+                    "import", "./_content/BlazorWebApp/clipboard.js");
+            }
+            catch
+            {
+                // IJSRuntime may be unavailable during prerender or in
+                // tests; the CopyToClipboardAsync fallback path will
+                // show a visible-text toast instead.
+            }
+        }
+    }
+
+    private async Task HandleOpenActionPlan()
+    {
+        // Bubble up to the parent, which owns the <ActionPlanDialog>
+        // and its visibility flag. The dialog lives in the parent's
+        // render tree, not DetailPanel's, so opening it here
+        // doesn't interfere with the QuickActionDialog that's also
+        // hosted by this component.
+        if (OnOpenActionPlan.HasDelegate)
+        {
+            await OnOpenActionPlan.InvokeAsync();
+        }
+    }
+
+    private async Task HandleGenerate()
+    {
+        if (OnGenerateInsight.HasDelegate)
+        {
+            await OnGenerateInsight.InvokeAsync();
+        }
+    }
+
+    private async Task HandleDismiss()
+    {
+        _activeCta = null;
+        if (OnDismissInsight.HasDelegate)
+        {
+            await OnDismissInsight.InvokeAsync();
+        }
+    }
+
+    /// <summary>
+    /// Fire the right side-effect for each CTA kind. <c>clipboard</c>
+    /// happens immediately; every other kind opens the shared
+    /// <see cref="QuickActionDialog"/>.
+    /// </summary>
+    private async Task HandleQuickAction(QuickAction action)
+    {
+        if (action.Kind == QuickActionKind.Clipboard)
+        {
+            var text = action.Value ?? action.Label;
+            await CopyToClipboardAsync(text);
+            return;
+        }
+        _activeCta = action;
+    }
+
+    /// <summary>
+    /// Surface the dialog's submission as a toast. For <c>message</c>
+    /// CTAs we additionally write the body to the clipboard; on
+    /// failure we fall back to a visible-text toast so the user never
+    /// loses the message.
+    /// </summary>
+    private async Task HandleDialogSubmit(QuickActionResult result)
+    {
+        if (result.Kind == QuickActionKind.Message && result.ClipboardText is { } clip)
+        {
+            var ok = await CopyToClipboardAsync(clip, silent: true);
+            if (!ok)
+            {
+                _inlineToast = $"Clipboard not available. Message: {clip}";
+                ScheduleInlineToastClear();
+                return;
+            }
+        }
+
+        if (OnShowToast.HasDelegate)
+        {
+            await OnShowToast.InvokeAsync(result);
+        }
+        else
+        {
+            _inlineToast = result.Message;
+            ScheduleInlineToastClear();
+        }
+    }
+
+    private async Task<bool> CopyToClipboardAsync(string text, bool silent = false)
+    {
+        try
+        {
+            // Use the clipboard ESM module loaded in OnAfterRenderAsync.
+            // It returns true on success and false on failure (no
+            // clipboard API, permission denied, non-secure context,
+            // etc.).
+            if (_clipboardModule is not null)
+            {
+                var ok = await _clipboardModule.InvokeAsync<bool>("copyToClipboard", text);
+                if (ok)
+                {
+                    if (!silent)
+                    {
+                        _inlineToast = $"Copied \"{text}\" to clipboard.";
+                        ScheduleInlineToastClear();
+                    }
+                    return true;
+                }
+            }
+        }
+        catch
+        {
+            // IJSRuntime may be unavailable during prerender or in tests;
+            // fall through to the visible-text fallback.
+        }
+
+        if (!silent)
+        {
+            _inlineToast = $"Clipboard not available. Value: {text}";
+            ScheduleInlineToastClear();
+        }
+        return false;
+    }
+
+    private void ScheduleInlineToastClear()
+    {
+        // Auto-dismiss after 2.5s. Dispose the previous timer (if any)
+        // so successive toasts reset the timer instead of stacking.
+        _toastTimer?.Dispose();
+        _toastTimer = new System.Threading.Timer(_ =>
+        {
+            InvokeAsync(() =>
+            {
+                _inlineToast = null;
+                StateHasChanged();
+            });
+        }, null, dueTime: 2500, period: System.Threading.Timeout.Infinite);
+    }
+
+    public void Dispose()
+    {
+        _toastTimer?.Dispose();
+    }
+}

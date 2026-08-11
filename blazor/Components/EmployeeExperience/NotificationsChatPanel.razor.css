@@ -1,0 +1,192 @@
+/* NotificationsChatPanel — Notifications + Chat tabs panel
+   (port of src/screens/EmployeeExperience/components/NotificationsChatPanel.tsx).
+
+   The same rules used to live in EmployeeExperience.razor.css, but Blazor's
+   scoped CSS rewriter attaches the parent's [b-xxx] attribute only to elements
+   the parent component renders directly. The <div class="ee-notif-chat-panel">
+   and all of its descendants are rendered by this child component, so they
+   never get the parent's scope attribute and the page-scoped styles silently
+   do not match.
+
+   The fix is a child-scoped stylesheet (this file) for everything that lives
+   inside NotificationsChatPanel.razor. Selectors in here are auto-scoped to
+   this component, so they correctly match the panel's own DOM.
+
+   Visual rules are identical to what was in EmployeeExperience.razor.css so
+   there is no behaviour change — only that the styles now actually apply. */
+
+/* ---- Panel + tab strip ---- */
+.ee-notif-chat-panel {
+    display: flex;
+    flex-direction: column;
+    min-height: 360px;
+    gap: 12px;
+}
+
+.ee-notif-chat-tabs {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 4px;
+}
+
+.ee-subsection-tab {
+    background: var(--color-sf-bg-secondary);
+    color: var(--color-sf-fg-secondary);
+    border: 1px solid var(--color-sf-border-secondary);
+    padding: 6px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 500;
+    transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.ee-subsection-tab.active {
+    background: var(--color-sf-brand-100);
+    color: var(--color-sf-brand-700);
+    border-color: var(--color-sf-brand-300, var(--color-sf-brand-200));
+}
+
+.ee-subsection-tab:hover:not(.active) {
+    background: var(--color-sf-bg-secondary-hover);
+}
+
+.ee-unread-badge {
+    display: inline-block;
+    margin-left: 4px;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    background: var(--color-sf-brand-500);
+    color: #fff;
+    border-radius: 999px;
+    font-size: 10px;
+    font-weight: 700;
+    line-height: 18px;
+    text-align: center;
+    vertical-align: middle;
+}
+
+/* ---- Shared list (used by both tabs) ---- */
+.ee-notif-chat-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    overflow-y: auto;
+    max-height: 320px;
+}
+
+.ee-notif-chat-mark-all {
+    display: flex;
+    justify-content: flex-end;
+}
+
+.ee-link-btn {
+    background: transparent;
+    border: none;
+    color: var(--color-sf-brand-primary);
+    cursor: pointer;
+    font-size: 12px;
+    padding: 2px 4px;
+    text-decoration: underline;
+}
+
+.ee-link-btn:disabled {
+    color: var(--color-sf-fg-tertiary);
+    cursor: not-allowed;
+    text-decoration: none;
+}
+
+/* ---- Notification items ---- */
+.ee-notif-item {
+    background: var(--color-sf-bg-primary);
+    border: 1px solid var(--color-sf-border-secondary);
+    border-left: 3px solid #e0e0e0;
+    border-radius: 8px;
+    padding: 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 8px;
+}
+
+.ee-notif-item--unread {
+    border-left-color: #3B8CDE;
+}
+
+.ee-notif-item__body { min-width: 0; }
+
+.ee-notif-item__title {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--color-sf-fg-primary);
+}
+
+.ee-notif-item__text {
+    font-size: 12px;
+    color: var(--color-sf-fg-secondary);
+    margin-top: 2px;
+}
+
+.ee-notif-item__meta { margin-top: 4px; }
+
+/* ---- Chat ---- */
+.ee-chat-threads {
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+    padding-bottom: 4px;
+    flex-wrap: nowrap;
+}
+
+.ee-chat-threads .ee-subsection-tab {
+    white-space: nowrap;
+    font-size: 11px;
+    flex-shrink: 0;
+}
+
+.ee-chat-messages {
+    flex: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 4px;
+    min-height: 180px;
+}
+
+.ee-chat-empty {
+    text-align: center;
+    padding: 24px 8px;
+}
+
+.ee-chat-msg {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+}
+
+.ee-chat-msg--mine { align-items: flex-end; }
+
+.ee-chat-bubble {
+    background: #f0f0f0;
+    color: var(--color-sf-fg-primary);
+    padding: 6px 10px;
+    border-radius: 10px;
+    max-width: 80%;
+    font-size: 12px;
+    line-height: 1.4;
+}
+
+.ee-chat-msg--mine .ee-chat-bubble {
+    background: #3B8CDE;
+    color: #fff;
+}
+
+.ee-chat-meta { font-size: 10px; margin-top: 2px; }
+
+.ee-chat-input-row {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+}

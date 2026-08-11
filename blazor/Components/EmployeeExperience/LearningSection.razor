@@ -1,0 +1,236 @@
+@*
+  Port of src/screens/EmployeeExperience/components/LearningSection.tsx.
+
+  Lists learning recommendations with a status-filter and format-filter
+  dropdown pair, per-card action buttons (Save/Start/Complete/Reset/
+  Dismiss) and a match-score mini progress bar. Status changes are
+  PATCHed to the API via UpdateLearningStatusAsync; the server returns
+  the updated row, which we splice back into local state.
+*@
+
+@inject IEmployeeExperienceService EmployeeExperienceService
+
+@if (_isLoading)
+{
+    <LoadingState Variant="LoadingState.VariantKind.Spinner" Height="300px" />
+}
+else if (_error is not null)
+{
+    <ErrorState Message="@_error" OnRetry="LoadAsync" />
+}
+else if (_items.Count == 0)
+{
+    <EmptyState Title="No learning recommendations yet"
+                Description="Recommendations appear when you have a career plan with active milestones." />
+}
+else
+{
+    <div class="ee-subsection-wrap">
+        <h3 class="ee-section-title">Learning Recommendations</h3>
+
+        <div class="ee-filter-row">
+            <div class="ee-field" style="min-width:160px">
+                <label for="learn-status-filter">Status</label>
+                <SfDropDownList TValue="string" TItem="FilterOption"
+                                DataSource="@_statusFilterOptions"
+                                Value="@_statusFilter"
+                                ValueChanged="@OnStatusFilterChanged"
+                                SortOrder="@Syncfusion.Blazor.DropDowns.SortOrder.Ascending">
+                    <DropDownListFieldSettings Text="Label" Value="Value" />
+                </SfDropDownList>
+            </div>
+            <div class="ee-field" style="min-width:160px">
+                <label for="learn-format-filter">Format</label>
+                <SfDropDownList TValue="string" TItem="FilterOption"
+                                DataSource="@_formatFilterOptions"
+                                Value="@_formatFilter"
+                                ValueChanged="@OnFormatFilterChanged"
+                                SortOrder="@Syncfusion.Blazor.DropDowns.SortOrder.Ascending">
+                    <DropDownListFieldSettings Text="Label" Value="Value" />
+                </SfDropDownList>
+            </div>
+            <div class="ee-muted ee-filter-count">@_filtered.Count item(s)</div>
+        </div>
+
+        @if (_filtered.Count == 0)
+        {
+            <p class="ee-muted ee-empty-filters">No recommendations match the selected filters.</p>
+        }
+        else
+        {
+            <div class="ee-list">
+                @foreach (var l in _filtered)
+                {
+                    var formatLabel = _formatLabels.GetValueOrDefault(l.Format, l.Format);
+                    var matchPercent = l.MatchScore.HasValue
+                        ? (int)Math.Round(l.MatchScore.Value * 100.0m)
+                        : 0;
+                    var estHoursLabel = l.EstHours.HasValue ? $"{l.EstHours.Value:0.#}h" : "—";
+                    var providerLabel = string.IsNullOrEmpty(l.Provider) ? "Unspecified" : l.Provider!;
+                    <div class="ee-card">
+                        <div class="ee-card-row">
+                            <div>
+                                <strong class="ee-card-title">@l.Title</strong>
+                                <div class="ee-muted">
+                                    @formatLabel · @providerLabel · @estHoursLabel
+                                </div>
+                                @if (!string.IsNullOrEmpty(l.Reason))
+                                {
+                                    <div class="ee-muted" style="margin-top:4px">@l.Reason</div>
+                                }
+                            </div>
+                            <span class="ee-badge" style="background:#6C757D">@l.Status</span>
+                        </div>
+
+                        <div class="ee-match-row">
+                            <span><strong>Match:</strong> @matchPercent%</span>
+                            <SfProgressBar Type="Syncfusion.Blazor.ProgressBar.ProgressType.Linear"
+                                           Height="4"
+                                           Width="160px"
+                                           Value="@matchPercent"
+                                           TrackThickness="4"
+                                           ProgressThickness="4"
+                                           Minimum="0" Maximum="100"
+                                           ShowProgressValue="false" />
+                        </div>
+
+                        <div class="ee-card-actions">
+                            @switch (l.Status)
+                            {
+                                case "suggested":
+                                    <SfButton CssClass="e-flat" OnClick="@(() => UpdateStatus(l.Id, "saved"))">Save</SfButton>
+                                    <SfButton CssClass="e-flat" OnClick="@(() => UpdateStatus(l.Id, "in-progress"))">Start</SfButton>
+                                    <SfButton CssClass="e-flat" OnClick="@(() => UpdateStatus(l.Id, "dismissed"))">Dismiss</SfButton>
+                                    break;
+                                case "saved":
+                                    <SfButton CssClass="e-flat" OnClick="@(() => UpdateStatus(l.Id, "in-progress"))">Start</SfButton>
+                                    <SfButton CssClass="e-flat" OnClick="@(() => UpdateStatus(l.Id, "dismissed"))">Dismiss</SfButton>
+                                    break;
+                                case "in-progress":
+                                    <SfButton CssClass="e-flat" OnClick="@(() => UpdateStatus(l.Id, "completed"))">Complete</SfButton>
+                                    <SfButton CssClass="e-flat" OnClick="@(() => UpdateStatus(l.Id, "dismissed"))">Dismiss</SfButton>
+                                    break;
+                                case "completed":
+                                case "dismissed":
+                                    <SfButton CssClass="e-flat" OnClick="@(() => UpdateStatus(l.Id, "suggested"))">Reset</SfButton>
+                                    break;
+                            }
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+    </div>
+}
+
+@code {
+    private List<LearningRecommendation> _items = new();
+    private List<LearningRecommendation> _filtered = new();
+    private bool _isLoading = true;
+    private string? _error;
+    private string _statusFilter = "all";
+    private string _formatFilter = "all";
+
+    private record FilterOption(string Value, string Label);
+
+    private static readonly List<FilterOption> _statusFilterOptions = new()
+    {
+        new("all", "All"),
+        new("suggested", "Suggested"),
+        new("saved", "Saved"),
+        new("in-progress", "In Progress"),
+        new("completed", "Completed"),
+        new("dismissed", "Dismissed"),
+    };
+
+    private static readonly List<FilterOption> _formatFilterOptions = new()
+    {
+        new("all", "All"),
+        new("course", "Course"),
+        new("article", "Article"),
+        new("video", "Video"),
+        new("certification", "Certification"),
+        new("mentoring", "Mentoring"),
+        new("project", "Project"),
+    };
+
+    private static readonly Dictionary<string, string> _formatLabels = new()
+    {
+        { "course", "Course" },
+        { "article", "Article" },
+        { "video", "Video" },
+        { "certification", "Certification" },
+        { "mentoring", "Mentoring" },
+        { "project", "Project" },
+    };
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        try
+        {
+            _isLoading = true;
+            _error = null;
+            var data = await EmployeeExperienceService.GetLearningRecommendationsAsync();
+            _items = data.ToList();
+            ApplyFilters();
+        }
+        catch (Exception ex)
+        {
+            _error = "Failed to load recommendations";
+            Console.Error.WriteLine(ex);
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    protected override void OnParametersSet() => ApplyFilters();
+
+    private void OnStatusFilterChanged(string? value)
+    {
+        _statusFilter = value ?? "all";
+        ApplyFilters();
+    }
+
+    private void OnFormatFilterChanged(string? value)
+    {
+        _formatFilter = value ?? "all";
+        ApplyFilters();
+    }
+
+    private void ApplyFilters()
+    {
+        _filtered = _items
+            .Where(l => _statusFilter == "all" || string.Equals(l.Status, _statusFilter, StringComparison.OrdinalIgnoreCase))
+            .Where(l => _formatFilter == "all" || string.Equals(l.Format, _formatFilter, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+    }
+
+    private async Task UpdateStatus(string id, string newStatus)
+    {
+        // Optimistic update — the server is the source of truth, so we
+        // patch first and then splice the server's response back in.
+        _items = _items.Select(l => l.Id != id ? l : l with { Status = newStatus }).ToList();
+        ApplyFilters();
+
+        try
+        {
+            var updated = await EmployeeExperienceService.UpdateLearningStatusAsync(id, newStatus);
+            if (updated is not null)
+            {
+                _items = _items.Select(l => l.Id != updated.Id ? l : updated).ToList();
+                ApplyFilters();
+            }
+        }
+        catch (Exception ex)
+        {
+            _error = "Failed to update recommendation";
+            Console.Error.WriteLine(ex);
+            // Roll back by reloading the list.
+            await LoadAsync();
+        }
+    }
+}

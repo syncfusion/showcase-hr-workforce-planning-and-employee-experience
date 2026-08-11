@@ -1,0 +1,150 @@
+<div class="overview-screen">
+  <app-page-header
+    title="Overview"
+    subtitle="Workforce health and key metrics at a glance"
+  ></app-page-header>
+
+  @if (isLoading()) {
+    <app-loading-state height="400px"></app-loading-state>
+  } @else if (error()) {
+    <app-error-state
+      [message]="error()!"
+      [onRetry]="onRetry"
+      (retry)="onRetry()"
+    ></app-error-state>
+  } @else if (!kpi()) {
+    <!-- nothing -->
+  } @else {
+    <!-- KPI Grid -->
+    <div class="kpi-grid">
+      @for (card of kpiCards(); track card.title) {
+        <app-kpi-card
+          [title]="card.title"
+          [value]="card.value"
+          [change]="card.change"
+          [trendData]="card.trendData"
+          [context]="card.context"
+          [color]="card.color"
+          [riskThreshold]="20"
+          [riskValue]="isRetentionRiskCard(card) ? +card.value : undefined"
+          [invertTrend]="isRetentionRiskCard(card)"
+        ></app-kpi-card>
+      }
+    </div>
+
+    <div class="overview-layout">
+      <!-- Left Main Content -->
+      <div class="overview-main">
+        <!-- Active Requisitions Section -->
+        <div class="section-container">
+          <div class="section-header">
+            <h2 class="section-title">ACTIVE REQUISITIONS</h2>
+          </div>
+          <app-requisition-grid
+            [data]="requisitions()"
+            (view)="handleViewRequisition($event)"
+          ></app-requisition-grid>
+        </div>
+
+        <!-- Action Plans Section -->
+        <div class="section-container">
+          <div class="section-header">
+            <h2 class="section-title">ACTION PLANS</h2>
+            <div class="section-actions">
+              <button
+                ejs-button
+                cssClass="e-small e-primary"
+                (click)="openNewPlanDialog()"
+              >New Plan</button>
+            </div>
+          </div>
+          <app-action-plans [data]="actionPlans()"></app-action-plans>
+        </div>
+      </div>
+
+      <!-- New Action Plan Dialog -->
+      <ejs-dialog
+        width="480px"
+        [visible]="showDialog()"
+        header="New Action Plan"
+        showCloseIcon="true"
+        closeOnEscape="true"
+        isModal="true"
+        (close)="closeDialog()"
+        (overlayClick)="closeDialog()"
+        [buttons]="dialogButtons"
+      >
+        <ng-template #content>
+          <div class="new-plan-dialog">
+            <div class="new-plan-dialog__field">
+              <label class="new-plan-dialog__label">Title</label>
+              <ejs-textbox
+                placeholder="Enter plan title..."
+                floatLabelType="Never"
+                cssClass="e-outline"
+                [value]="newPlanTitle()"
+                (input)="onTitleChange($any($event).value)"
+                (change)="onTitleChange($any($event).value)"
+              ></ejs-textbox>
+            </div>
+            <div class="new-plan-dialog__field">
+              <label class="new-plan-dialog__label">Description</label>
+              <ejs-textbox
+                placeholder="Enter a short description..."
+                floatLabelType="Never"
+                cssClass="e-outline"
+                [multiline]="true"
+                [value]="newPlanDescription()"
+                (input)="onDescriptionChange($any($event).value)"
+                (change)="onDescriptionChange($any($event).value)"
+              ></ejs-textbox>
+            </div>
+            <div class="new-plan-dialog__field">
+              <label class="new-plan-dialog__label">Category</label>
+              <ejs-dropdownlist
+                [dataSource]="newPlanCategories"
+                [value]="newPlanCategory()"
+                popupHeight="180px"
+                cssClass="e-outline"
+                (change)="onCategoryChange($any($event).value)"
+              ></ejs-dropdownlist>
+            </div>
+            <div class="new-plan-dialog__field">
+              <label class="new-plan-dialog__label">Status</label>
+              <ejs-dropdownlist
+                [dataSource]="statusColors"
+                [fields]="statusColorFields"
+                [value]="newPlanStatusColor()"
+                popupHeight="180px"
+                cssClass="e-outline"
+                (change)="onStatusColorChange($any($event).value)"
+              ></ejs-dropdownlist>
+            </div>
+          </div>
+        </ng-template>
+      </ejs-dialog>
+
+      <!-- Toast Success Notification -->
+      <ejs-toast
+        #toast
+        position="Bottom"
+        [timeOut]="5000"
+        showCloseButton="true"
+        cssClass="e-toast-success"
+      ></ejs-toast>
+
+      <!-- Right Sidebar -->
+      <aside class="overview-sidebar">
+        <app-detail-panel
+          [timeline]="activityTimeline()"
+          [aiInsight]="aiInsight()"
+          [generatingInsight]="generatingInsight()"
+          [insightError]="insightError()"
+          (generateInsight)="handleGenerateInsight()"
+          (dismissInsight)="handleDismissInsight()"
+          (showToast)="handleShowToast($event)"
+        ></app-detail-panel>
+      </aside>
+    </div>
+  }
+</div>

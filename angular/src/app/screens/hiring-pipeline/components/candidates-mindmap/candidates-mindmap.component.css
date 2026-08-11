@@ -1,0 +1,85 @@
+/*
+  CandidatesMindMap styles — ported from the React component's inline
+  <style> block. CSS isolation in Angular uses the same scope-rewriting
+  behavior as Blazor (see the user-memory note on Blazor CSS isolation +
+  Syncfusion), so we keep an outer Angular-rendered wrapper (`.candidates-mindmap`)
+  and put the Syncfusion-rendered descendants inside `:host ::ng-deep` to
+  make sure the scope attribute stays attached to a Blazor/Angular-rendered
+  class chain.
+*/
+
+:host { display: block; }
+
+.candidates-mindmap {
+  margin-top: 24px;
+  background: var(--color-sf-bg-primary, #fff);
+  border: 1px solid var(--color-sf-border-secondary, #e5e7eb);
+  border-radius: 12px;
+  padding: 20px 20px 12px;
+}
+
+.candidates-mindmap-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.candidates-mindmap-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--color-sf-fg-primary, #0f172a);
+}
+
+.candidates-mindmap-subtitle {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: var(--color-sf-fg-secondary, #64748b);
+}
+
+.candidates-mindmap-legend {
+  display: inline-flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  color: var(--color-sf-fg-secondary, #64748b);
+}
+
+.mindmap-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.mindmap-swatch {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border-radius: 4px;
+}
+
+.candidates-mindmap-canvas {
+  width: 100%;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+/* Syncfusion renders nodes as absolutely-positioned divs. Add a soft
+   drop-shadow so the mind map feels like a card surface. */
+:host ::ng-deep .candidates-mindmap-canvas .e-diagram .e-node {
+  filter: drop-shadow(0 1px 1px rgba(15, 23, 42, 0.12));
+}
+
+@media (max-width: 640px) {
+  .candidates-mindmap {
+    padding: 16px 12px 8px;
+  }
+  .candidates-mindmap-legend {
+    font-size: 11px;
+    gap: 8px;
+  }
+}

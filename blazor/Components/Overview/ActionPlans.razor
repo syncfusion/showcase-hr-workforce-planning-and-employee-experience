@@ -1,0 +1,72 @@
+@*
+  Port of src/screens/Overview/components/ActionPlans.tsx. Card grid where
+  every card shows a category, status badge, title, description, and a
+  per-item SfProgressBar. The card's top border color encodes the status.
+*@
+
+@using BlazorWebApp.Components.Models
+@using Syncfusion.Blazor.Buttons
+
+<div class="action-plans-grid">
+    @foreach (var plan in Data)
+    {
+        var style = GetStatusStyle(plan.StatusColor);
+        <div class="action-plan e-card" style="@($"border-top: 3px solid {style.Border};")">
+            <div class="action-plan__top">
+                <span class="action-plan__category">@plan.Category</span>
+                <div class="action-plan__badge-wrap">
+                    @{
+                        var statusTooltip = $"Status: {plan.StatusLabel}";
+                    }
+                    <SfChip CssClass="action-plan__badge-chip" title="@statusTooltip">
+                        <ChipItems>
+                            <ChipItem Text="@plan.StatusLabel"
+                                      CssClass="action-plan__badge-item e-small"
+                                      HtmlAttributes="@(new Dictionary<string, object>
+                                      {
+                                          ["style"] = $"background-color: {style.BadgeBg}; color: {style.BadgeText}; border-color: {style.Border};",
+                                      })">
+                            </ChipItem>
+                        </ChipItems>
+                    </SfChip>
+                </div>
+            </div>
+
+            <div class="action-plan__middle">
+                <div class="action-plan__title">@plan.Title</div>
+                <div class="action-plan__description">@plan.Description</div>
+            </div>
+
+            <div class="action-plan__progress">
+                <div class="action-plan__progress-bar">
+                    <SfProgressBar Type="ProgressType.Linear"
+                                   Value="@plan.Progress"
+                                   Height="6"
+                                   Width="100%"
+                                   TrackThickness="6"
+                                   ProgressThickness="6"
+                                   ProgressColor="@style.BarColor"
+                                   CornerRadius="CornerType.Round"
+                                   ShowProgressValue="false">
+                        <ProgressBarAnimation Enable="true" Duration="800" />
+                    </SfProgressBar>
+                </div>
+                <span class="action-plan__progress-label">@plan.Progress%</span>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public ActionPlan[] Data { get; set; } = Array.Empty<ActionPlan>();
+
+    private sealed record StatusStyle(string Border, string BadgeBg, string BadgeText, string BarColor);
+
+    private static StatusStyle GetStatusStyle(string statusColor) => statusColor.ToLowerInvariant() switch
+    {
+        "danger" => new StatusStyle("var(--color-sf-error-500)", "var(--color-sf-error-100)", "var(--color-sf-error-700)", "var(--color-sf-error-500)"),
+        "warning" => new StatusStyle("var(--color-sf-warning-500)", "var(--color-sf-warning-100)", "var(--color-sf-warning-700)", "var(--color-sf-warning-500)"),
+        "success" => new StatusStyle("var(--color-sf-success-500)", "var(--color-sf-success-100)", "var(--color-sf-success-700)", "var(--color-sf-brand-500)"),
+        _ => new StatusStyle("var(--color-sf-brand-500)", "var(--color-sf-brand-100)", "var(--color-sf-brand-700)", "var(--color-sf-brand-500)"),
+    };
+}

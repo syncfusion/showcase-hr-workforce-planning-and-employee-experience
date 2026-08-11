@@ -1,0 +1,370 @@
+/* Workforce Planning — premium styling, ported from the React screen.
+   All colors come from --color-sf-* design tokens. Scoped via Blazor's
+   [scoped CSS] mechanism to .workforce-planning-screen and its descendants.
+
+   IMPORTANT: Many descendants are rendered by CHILD components
+   (PlanCard / PlanPeriodCard / ScenarioCard / SnapshotCard / VarianceCard).
+   Blazor's scoped CSS would otherwise rewrite selectors like `.wp-stat-header`
+   to `.wp-stat-header[b-{scope}]`, which never matches DOM produced inside a
+   child component. To reach across the component boundary we use the
+   `::deep` combinator — see https://aka.ms/blazor-css-isolation
+   (`::deep` keeps the scope attribute on `.workforce-planning-screen` and
+   strips it from the inner selector). */
+
+.workforce-planning-screen {
+    animation: wp-fade-in 0.3s ease-in;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+@keyframes wp-fade-in {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .workforce-planning-screen { animation: none; }
+}
+
+/* ---- Stat cards (summary grid) ----
+   The .e-card chrome (border, radius, padding, hover lift) is set in
+   each per-component CSS file (PlanCard.razor.css etc.) on a Blazor-
+   rendered inner <div class="wp-stat-card-sf">. The grid + shared
+   .wp-stat-* / .wp-status-chip / .wp-period-* / .wp-scenario-meta
+   rules stay here and target the inner Blazor-rendered divs. */
+.workforce-planning-screen ::deep .summary-grid.wp-stat-cards {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 16px;
+    /* Force the grid to honor the 4-col template even when the card
+       content's intrinsic min-width would otherwise force a 2x2 wrap. */
+    min-width: 0;
+}
+
+.workforce-planning-screen ::deep .summary-grid.wp-stat-cards > div {
+    /* The grid item wrapper (Blazor-rendered SfCard output) — allow
+       it to shrink below its content's intrinsic min-width so the
+       1fr columns actually fit. */
+    min-width: 0;
+}
+
+.workforce-planning-screen ::deep .wp-stat-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--color-sf-border-tertiary);
+    background: var(--color-sf-bg-secondary-subtle);
+    gap: 8px;
+}
+
+.workforce-planning-screen ::deep .wp-stat-label {
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--color-sf-fg-tertiary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    line-height: 1.3;
+}
+
+.workforce-planning-screen ::deep .wp-stat-body {
+    padding: 12px 14px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+}
+
+.workforce-planning-screen ::deep .wp-stat-value {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--color-sf-fg-primary);
+    line-height: 1.3;
+    /* Allow long plan/scenario names to wrap inside narrow columns. */
+    overflow-wrap: anywhere;
+}
+
+.workforce-planning-screen ::deep .wp-stat-subtext {
+    font-size: 11px;
+    color: var(--color-sf-fg-tertiary);
+}
+
+/* ---- Status / Confidence badges inside stat card header ----
+   SfChip-based pills. The .e-chip defaults supply the per-status
+   background/border (e-success / e-warning / e-info / e-danger /
+   e-outline variants), so we only need to size + space the item
+   here. The 22px height + 1.4 line-height is the same descender-
+   clipping fix used in KpiCard, RequisitionGrid, and ActionPlans —
+   the default 20px item height clips characters like the `g` in
+   "high". */
+.workforce-planning-screen ::deep .wp-status-chip,
+.workforce-planning-screen ::deep .wp-confidence-chip {
+    display: inline-flex;
+    flex-shrink: 0;
+}
+
+.workforce-planning-screen ::deep .wp-status-chip .e-chip,
+.workforce-planning-screen ::deep .wp-confidence-chip .e-chip {
+    height: 20px;
+    line-height: 1.3;
+    font-size: 10px;
+    font-weight: 600;
+    padding: 0 8px;
+    border-radius: 9999px;
+    text-transform: capitalize;
+    letter-spacing: 0.2px;
+    white-space: nowrap;
+    cursor: default;
+}
+
+/* ---- Planning Period chip (matches PlanCard "Active" SfChip chrome) ----
+   Uses the same wp-status-chip rules as the Active badge; the modifier
+   class wp-period-chip is here only in case we need to override the
+   per-card default (e.g. font size). The chip element itself is sized
+   by the shared .wp-status-chip .e-chip rules above. */
+.workforce-planning-screen ::deep .wp-period-chip {
+    display: inline-flex;
+}
+
+.workforce-planning-screen ::deep .wp-period-timeline {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.workforce-planning-screen ::deep .wp-timeline-track {
+    position: relative;
+    height: 3px;
+    border-radius: 9999px;
+    background: var(--color-sf-border-secondary);
+    overflow: hidden;
+}
+
+.workforce-planning-screen ::deep .wp-timeline-progress {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 100%;
+    border-radius: 9999px;
+    background: linear-gradient(90deg, var(--color-sf-brand-600), var(--color-sf-success-600));
+}
+
+.workforce-planning-screen ::deep .wp-timeline-labels {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    min-width: 0;
+}
+
+.workforce-planning-screen ::deep .wp-timeline-point {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    min-width: 0;
+}
+
+.workforce-planning-screen ::deep .wp-timeline-end {
+    align-items: flex-end;
+    text-align: right;
+}
+
+.workforce-planning-screen ::deep .wp-timeline-date {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--color-sf-fg-primary);
+    line-height: 1.2;
+    /* Allow date to wrap inside narrow columns. */
+    overflow-wrap: anywhere;
+}
+
+.workforce-planning-screen ::deep .wp-timeline-tag {
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--color-sf-fg-quaternary);
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+}
+
+.workforce-planning-screen ::deep .wp-scenario-meta {
+    display: flex;
+    gap: 10px;
+    font-size: 11px;
+    color: var(--color-sf-fg-tertiary);
+    padding-top: 6px;
+    border-top: 1px dashed var(--color-sf-border-secondary);
+    margin-top: 4px;
+    flex-wrap: wrap;
+    min-width: 0;
+}
+
+.workforce-planning-screen ::deep .wp-scenario-meta strong {
+    color: var(--color-sf-fg-primary);
+    font-weight: 700;
+    font-size: 12px;
+}
+
+.workforce-planning-screen ::deep .wp-stat-number {
+    font-size: 24px !important;
+    line-height: 1.1;
+}
+
+/* ---- Generic card container ---- */
+.workforce-planning-screen ::deep .wp-card,
+.workforce-planning-screen ::deep .section-container {
+    background: var(--color-sf-bg-primary);
+    border: 1px solid var(--color-sf-border-secondary);
+    border-radius: 12px;
+    box-shadow: var(--shadow-sm);
+    transition: box-shadow 0.2s ease;
+    padding: 24px;
+}
+
+.workforce-planning-screen ::deep .wp-card:hover,
+.workforce-planning-screen ::deep .section-container:hover {
+    box-shadow: var(--shadow-md);
+}
+
+/* ---- Section headers ---- */
+.workforce-planning-screen ::deep .wp-section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-bottom: 14px;
+    margin-bottom: 20px;
+    border-bottom: 1px solid var(--color-sf-border-tertiary);
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+.workforce-planning-screen ::deep .wp-section-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--color-sf-fg-primary);
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.workforce-planning-screen ::deep .wp-section-actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+/* ---- Comparison panel ---- */
+.workforce-planning-screen ::deep .wp-comparison-subtitle {
+    font-size: 13px;
+    color: var(--color-sf-fg-tertiary);
+    margin: -8px 0 20px;
+}
+
+.workforce-planning-screen ::deep .wp-comparison-subtitle strong {
+    color: var(--color-sf-fg-primary);
+    font-weight: 600;
+}
+
+/* ---- Variance cards ----
+   The .wp-variance-card / -label / -value / -meta rules now live in
+   Components/WorkforcePlanning/VarianceCard.razor.css so the [b-scope]
+   attribute is attached to the Blazor-rendered inner <div> rather than
+   a Syncfusion JS-rendered <div class="e-card ...>. Only the grid
+   container stays here because the .wp-variance-grid <div> is rendered
+   directly by this page. */
+.workforce-planning-screen ::deep .wp-variance-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 20px;
+}
+
+/* ---- Chart polish ---- */
+.workforce-planning-screen ::deep .wp-card .e-chart,
+.workforce-planning-screen ::deep .section-container .e-chart {
+    border: none !important;
+    font-family: inherit !important;
+}
+
+.workforce-planning-screen ::deep .wp-card .e-chart text,
+.workforce-planning-screen ::deep .section-container .e-chart text {
+    font-family: inherit !important;
+}
+
+.workforce-planning-screen ::deep .wp-card .e-chart .e-legend-item,
+.workforce-planning-screen ::deep .section-container .e-chart .e-legend-item {
+    font-size: 13px !important;
+    color: var(--color-sf-fg-secondary) !important;
+}
+
+.workforce-planning-screen ::deep .wp-card .e-chart .e-axis-title,
+.workforce-planning-screen ::deep .section-container .e-chart .e-axis-title {
+    font-size: 12px !important;
+    font-weight: 600 !important;
+    fill: var(--color-sf-fg-secondary) !important;
+}
+
+.workforce-planning-screen ::deep .wp-card .e-chart .e-label,
+.workforce-planning-screen ::deep .section-container .e-chart .e-label {
+    font-size: 12px !important;
+    fill: var(--color-sf-fg-primary) !important;
+}
+
+/* ---- Dropdown width (scenario picker) ---- */
+.workforce-planning-screen ::deep .wp-section-actions .e-ddl,
+.workforce-planning-screen ::deep .wp-section-actions .e-control-wrapper.e-ddl {
+    min-width: 220px;
+}
+
+/* ---- Dark mode overrides ---- */
+[data-theme="dark"] .workforce-planning-screen ::deep .wp-stat-header {
+    background: linear-gradient(to bottom, var(--color-sf-bg-primary-alt), var(--color-sf-bg-primary));
+}
+
+[data-theme="dark"] .workforce-planning-screen ::deep .summary-grid.wp-stat-cards .wp-stat-card-sf:hover,
+[data-theme="dark"] .workforce-planning-screen ::deep .summary-grid.wp-stat-cards .wp-period-card-sf:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2) !important;
+}
+
+[data-theme="dark"] .workforce-planning-screen ::deep .wp-card:hover,
+[data-theme="dark"] .workforce-planning-screen ::deep .section-container:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* Dark mode hover for variance cards lives in VarianceCard.razor.css
+   so the rule can target a Blazor-rendered descendant of SfCard. */
+
+/* ---- Responsive ---- */
+@media (max-width: 1024px) {
+    .workforce-planning-screen ::deep .summary-grid.wp-stat-cards {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .workforce-planning-screen ::deep .wp-variance-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 768px) {
+    .workforce-planning-screen ::deep .summary-grid.wp-stat-cards {
+        grid-template-columns: 1fr;
+    }
+    .workforce-planning-screen ::deep .wp-variance-grid {
+        grid-template-columns: 1fr;
+    }
+    .workforce-planning-screen ::deep .wp-section-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 12px;
+    }
+    .workforce-planning-screen ::deep .wp-section-actions {
+        width: 100%;
+    }
+    .workforce-planning-screen ::deep .wp-section-actions .e-ddl,
+    .workforce-planning-screen ::deep .wp-section-actions .e-control-wrapper.e-ddl {
+        width: 100%;
+        min-width: 0;
+    }
+    .workforce-planning-screen ::deep .wp-card {
+        padding: 18px;
+    }
+}

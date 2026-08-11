@@ -1,0 +1,875 @@
+/* Employee Experience page — premium styling, ported from
+   src/screens/EmployeeExperience/EmployeeExperience.tsx. All colors come
+   from --color-sf-* design tokens. Scoped via Blazor's [scoped CSS]
+   mechanism to .employee-experience-screen and its descendants. The
+   shared sub-section classes (ee-card, ee-form, ee-field, ee-list, etc.)
+   are written as ::deep selectors so they reach into the child *Section
+   components (SelfServiceSection, FeedbackSection, etc.) — Blazor
+   scoped CSS does not cross component boundaries by default, and these
+   styles are intentionally shared between the page and its children. */
+
+.employee-experience-screen {
+    animation: ee-fade-in 0.3s ease-in;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+@keyframes ee-fade-in {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .employee-experience-screen { animation: none; }
+}
+
+/* =========================================================================
+   Tabs row — pill container around the Syncfusion tab bar. The notification
+   bell is the LAST item inside the `SfTab` itself (matching the React port
+   where the bell is a sibling of the tab-header items inside
+   `TabItemsDirective`). The tab bar fills the row; CSS pushes the bell to
+   the right via `margin-left: auto` on the last `.e-toolbar-item`.
+   ========================================================================= */
+.ee-tabs-row {
+    margin-bottom: 20px;
+    padding: 6px 6px 0 6px;
+    background: var(--color-sf-bg-primary);
+    border: 1px solid var(--color-sf-hairline);
+    border-radius: 12px;
+    box-shadow: var(--shadow-card);
+}
+
+/* =========================================================================
+   Syncfusion TabComponent — modern restyle.
+   The .ee-modern-tab__inner spans are injected into the Syncfusion tab
+   header by the @code block in EmployeeExperience.razor, so we need
+   ::deep to pierce Blazor's scoped CSS and reach those spans.
+   ========================================================================= */
+.ee-modern-tabs.e-tab {
+    background: transparent !important;
+    border: 0 !important;
+}
+.ee-modern-tabs .e-tab-header {
+    background: transparent !important;
+    border: 0 !important;
+    border-bottom: 1px solid var(--color-sf-hairline) !important;
+    padding: 0 !important;
+    margin: 0 !important;
+}
+.ee-modern-tabs .e-tab-header::before,
+.ee-modern-tabs .e-tab-header::after { display: none !important; }
+
+.ee-modern-tabs .e-toolbar-items { gap: 4px; }
+.ee-modern-tabs .e-toolbar-item { margin: 0 !important; }
+.ee-modern-tabs .e-tab-text { padding: 0 !important; background: transparent !important; }
+
+/* Modern tab header — Syncfusion renders the TabHeader as
+   <span class="e-tab-text"><span class="e-icons e-tab-icon ee-tab-icon--<id>">label</span></span>
+   (icon on the left, text on the right). We use the IconCss slot
+   instead of injecting HTML into Text, because Blazor HTML-encodes
+   the Text property and would have rendered our icon spans as
+   literal text. The CSS below styles the Syncfusion-rendered
+   shell so the icon and label sit on a single line, the icon
+   paints a Lucide-style SVG via mask-image, and the active tab
+   shows a brand-color underline. */
+::deep .ee-modern-tabs .e-toolbar-item .e-tab-text {
+    display: inline-flex !important;
+    align-items: center;
+    gap: 8px;
+    height: 40px;
+    padding: 0 16px;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--color-sf-fg-tertiary);
+    border-radius: 8px 8px 0 0;
+    position: relative;
+    transition: color 0.15s ease, background-color 0.15s ease;
+    cursor: pointer;
+    line-height: 1;
+    background: transparent !important;
+}
+::deep .ee-modern-tabs .e-toolbar-item:not(.e-active) .e-tab-text:hover {
+    color: var(--color-sf-fg-primary);
+    background: var(--color-sf-bg-secondary-subtle) !important;
+}
+::deep .ee-modern-tabs .e-toolbar-item.e-active .e-tab-text {
+    color: var(--color-sf-fg-brand-primary) !important;
+    background: transparent !important;
+}
+
+
+/* The icon slot Syncfusion adds because of TabHeader.IconCss. We
+   size it, hide the default Syncfusion e-tab-icon font glyph, and
+   prepare it for the mask-image painting defined per-section
+   below. `currentColor` flows through to the SVG via mask so the
+   icon naturally adopts the tab's text color (including the
+   brand color when active). */
+::deep .ee-modern-tabs .e-tab-icon {
+    width: 16px !important;
+    height: 16px !important;
+    font-size: 16px !important;
+    line-height: 16px !important;
+    margin-right: 0 !important;
+    flex-shrink: 0;
+    color: currentColor;
+    /* Paint via mask so the SVG picks up `currentColor` from the
+       tab shell. background-color is what becomes the icon color;
+       mask-image cuts the shape. */
+    background-color: currentColor;
+    -webkit-mask-repeat: no-repeat;
+            mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+            mask-position: center;
+    -webkit-mask-size: 16px 16px;
+            mask-size: 16px 16px;
+}
+/* Hide the default e-tab-icon font glyph so only our mask paints. */
+::deep .ee-modern-tabs .e-tab-icon::before { display: none !important; }
+
+/* Per-section Lucide icons. Each rule is the same shape: a
+   `mask-image: url("data:image/svg+xml;...")` with the Lucide
+   path data, sized 16x16. The SVG uses stroke-only paths so the
+   `background-color: currentColor` (set on .e-tab-icon) becomes
+   the visible stroke color and updates with the tab's text color
+   (including the brand-600 active state). */
+::deep .ee-modern-tabs .ee-tab-icon--self-service {
+    -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'><polyline points='22 12 16 12 14 15 10 15 8 12 2 12'/><path d='M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z'/></svg>");
+            mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'><polyline points='22 12 16 12 14 15 10 15 8 12 2 12'/><path d='M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z'/></svg>");
+}
+::deep .ee-modern-tabs .ee-tab-icon--feedback {
+    -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'><path d='M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z'/></svg>");
+            mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'><path d='M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z'/></svg>");
+}
+::deep .ee-modern-tabs .ee-tab-icon--recognition {
+    -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'><path d='M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z'/><path d='M20 3v4'/><path d='M22 5h-4'/><path d='M4 17v2'/><path d='M5 18H3'/></svg>");
+            mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'><path d='M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z'/><path d='M20 3v4'/><path d='M22 5h-4'/><path d='M4 17v2'/><path d='M5 18H3'/></svg>");
+}
+::deep .ee-modern-tabs .ee-tab-icon--career {
+    -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'><circle cx='12' cy='12' r='10'/><polygon points='16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76'/></svg>");
+            mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'><circle cx='12' cy='12' r='10'/><polygon points='16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76'/></svg>");
+}
+::deep .ee-modern-tabs .ee-tab-icon--learning {
+    -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'><path d='M21.42 10.922a1 1 0 0 0-.019-1.838L12.83 5.18a2 2 0 0 0-1.66 0L2.6 9.08a1 1 0 0 0 0 1.832l8.57 3.908a2 2 0 0 0 1.66 0z'/><path d='M22 10v6'/><path d='M6 12.5V16a6 3 0 0 0 12 0v-3.5'/></svg>");
+            mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'><path d='M21.42 10.922a1 1 0 0 0-.019-1.838L12.83 5.18a2 2 0 0 0-1.66 0L2.6 9.08a1 1 0 0 0 0 1.832l8.57 3.908a2 2 0 0 0 1.66 0z'/><path d='M22 10v6'/><path d='M6 12.5V16a6 3 0 0 0 12 0v-3.5'/></svg>");
+}
+::deep .ee-modern-tabs .ee-tab-icon--my-board {
+    -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'><rect width='18' height='18' x='3' y='3' rx='2'/><path d='M9 3v18'/><path d='M15 3v18'/><path d='M3 9h18'/><path d='M3 15h18'/></svg>");
+            mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'><rect width='18' height='18' x='3' y='3' rx='2'/><path d='M9 3v18'/><path d='M15 3v18'/><path d='M3 9h18'/><path d='M3 15h18'/></svg>");
+}
+
+/* =========================================================================
+   Notification bell — 40×40 chip with a brand-error unread badge.
+   The bell is now the LAST `TabItem` inside the Syncfusion tab bar
+   (matching the React port). We use a plain <button> in the .razor, not
+   <SfButton>, so the chip styling fully owns the shape (SfButton would
+   inject theme padding that breaks the 40×40 outline). Syncfusion
+   renders the `HeaderTemplate` content inside a `.e-toolbar-item`; we
+   need `::deep` to pierce Blazor's scoped CSS so we can:
+     - Push the bell to the right (`margin-left: auto`)
+     - Make the wrapper toolbar-item non-interactive (no active tab
+       treatment, no underline indicator, no hover background)
+     - Keep the existing chip button styling.
+   The .ee-bell-btn class is kept as an alias for any third-party code
+   that still targets it.
+   ========================================================================= */
+::deep .ee-modern-tabs .e-toolbar-item.ee-bell-item {
+    margin-left: auto !important;
+    background: transparent !important;
+    pointer-events: auto;
+    align-self: center;
+    height: 40px;
+    padding: 0 6px;
+}
+::deep .ee-modern-tabs .e-toolbar-item.ee-bell-item .e-tab-wrap,
+::deep .ee-modern-tabs .e-toolbar-item.ee-bell-item .e-tab-text {
+    padding: 0 !important;
+    background: transparent !important;
+    height: auto !important;
+    color: inherit !important;
+    cursor: pointer;
+    border-radius: 10px;
+}
+::deep .ee-modern-tabs .e-toolbar-item.ee-bell-item .e-tab-text:hover,
+::deep .ee-modern-tabs .e-toolbar-item.ee-bell-item .e-tab-wrap:hover {
+    background: transparent !important;
+    color: inherit !important;
+}
+::deep .ee-modern-tabs .e-toolbar-item.ee-bell-item.e-active .e-tab-text,
+::deep .ee-modern-tabs .e-toolbar-item.ee-bell-item.e-active .e-tab-wrap {
+    color: inherit !important;
+    background: transparent !important;
+}
+::deep .ee-modern-tabs .e-toolbar-item.ee-bell-item::after { display: none !important; }
+::deep .ee-modern-tabs .e-toolbar-item.ee-bell-item .e-tab-icon { display: none !important; }
+
+.ee-bell,
+.ee-bell-btn {
+    position: relative;
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    background: var(--color-sf-bg-primary);
+    border: 1px solid var(--color-sf-hairline);
+    color: var(--color-sf-fg-tertiary);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    padding: 0;
+    flex-shrink: 0;
+    margin: 0 4px 4px 0;
+    font: inherit;
+    line-height: 1;
+    transition: background-color 0.15s ease,
+                color 0.15s ease,
+                border-color 0.15s ease,
+                box-shadow 0.15s ease,
+                transform 0.15s ease;
+}
+.ee-bell:hover,
+.ee-bell-btn:hover {
+    background: var(--color-sf-bg-secondary);
+    color: var(--color-sf-fg-primary);
+    border-color: var(--color-sf-border-primary);
+    box-shadow: var(--shadow-card);
+    transform: translateY(-1px);
+}
+.ee-bell:active,
+.ee-bell-btn:active {
+    transform: translateY(0) scale(0.97);
+    box-shadow: none;
+}
+.ee-bell:focus-visible,
+.ee-bell-btn:focus-visible {
+    outline: 2px solid var(--color-sf-border-brand);
+    outline-offset: 2px;
+}
+.ee-bell__icon,
+.ee-bell-btn__icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+}
+.ee-bell svg,
+.ee-bell-btn svg {
+    width: 18px;
+    height: 18px;
+    color: currentColor;
+    display: block;
+}
+
+.ee-bell__count,
+.ee-bell-btn__count {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    background: var(--color-sf-error-600, #dc3545);
+    color: #fff;
+    border-radius: 999px;
+    border: 2px solid var(--color-sf-bg-primary);
+    box-sizing: border-box;
+    letter-spacing: 0.02em;
+}
+
+/* ---- Notifications drawer (slide-in from right) ---- */
+.ee-drawer-backdrop {
+    position: fixed;
+    inset: 0;
+    background: var(--color-sf-utility-overlay-bg-color, rgba(0, 0, 0, 0.45));
+    z-index: 1000;
+    animation: ee-fade-in 0.2s ease;
+}
+
+.ee-drawer {
+    position: fixed;
+    top: 0;
+    right: 0;
+    width: min(420px, 100vw);
+    height: 100vh;
+    background: var(--color-sf-bg-primary);
+    box-shadow: var(--shadow-xl);
+    z-index: 1001;
+    display: flex;
+    flex-direction: column;
+    animation: ee-slide-in-right 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes ee-slide-in-right {
+    from { transform: translateX(100%); }
+    to { transform: translateX(0); }
+}
+
+.ee-drawer-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--color-sf-border-secondary);
+    flex-shrink: 0;
+}
+
+.ee-drawer-header .ee-section-title {
+    margin: 0;
+}
+
+.ee-drawer-body {
+    flex: 1;
+    overflow: auto;
+    padding: 12px;
+}
+
+.ee-close-btn {
+    background: transparent;
+    border: none;
+    font-size: 20px;
+    cursor: pointer;
+    line-height: 1;
+    color: var(--color-sf-fg-tertiary);
+    padding: 4px 8px;
+    border-radius: 4px;
+}
+
+.ee-close-btn:hover {
+    background: var(--color-sf-bg-secondary-hover);
+}
+
+/* ---- Notifications + chat panel content (inside the drawer) ---- */
+.ee-notif-chat-panel {
+    display: flex;
+    flex-direction: column;
+    min-height: 360px;
+    gap: 12px;
+}
+
+.ee-notif-chat-tabs {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 4px;
+}
+
+.ee-subsection-tab {
+    background: var(--color-sf-bg-secondary);
+    color: var(--color-sf-fg-secondary);
+    border: 1px solid var(--color-sf-border-secondary);
+    padding: 6px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 500;
+    transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.ee-subsection-tab.active {
+    background: var(--color-sf-brand-100);
+    color: var(--color-sf-brand-700);
+    border-color: var(--color-sf-brand-300, var(--color-sf-brand-200));
+}
+
+.ee-subsection-tab:hover:not(.active) {
+    background: var(--color-sf-bg-secondary-hover);
+}
+
+.ee-unread-badge {
+    display: inline-block;
+    margin-left: 4px;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    background: var(--color-sf-brand-500);
+    color: #fff;
+    border-radius: 999px;
+    font-size: 10px;
+    font-weight: 700;
+    line-height: 18px;
+    text-align: center;
+    vertical-align: middle;
+}
+
+.ee-notif-chat-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    overflow-y: auto;
+    max-height: 320px;
+}
+
+.ee-notif-chat-mark-all {
+    display: flex;
+    justify-content: flex-end;
+}
+
+.ee-link-btn {
+    background: transparent;
+    border: none;
+    color: var(--color-sf-brand-primary);
+    cursor: pointer;
+    font-size: 12px;
+    padding: 2px 4px;
+    text-decoration: underline;
+}
+
+.ee-link-btn:disabled {
+    color: var(--color-sf-fg-tertiary);
+    cursor: not-allowed;
+    text-decoration: none;
+}
+
+.ee-notif-item {
+    background: var(--color-sf-bg-primary);
+    border: 1px solid var(--color-sf-border-secondary);
+    border-left: 3px solid #e0e0e0;
+    border-radius: 8px;
+    padding: 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 8px;
+}
+
+.ee-notif-item--unread {
+    border-left-color: #3B8CDE;
+}
+
+.ee-notif-item__body { min-width: 0; }
+
+.ee-notif-item__title {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--color-sf-fg-primary);
+}
+
+.ee-notif-item__text {
+    font-size: 12px;
+    color: var(--color-sf-fg-secondary);
+    margin-top: 2px;
+}
+
+.ee-notif-item__meta { margin-top: 4px; }
+
+/* ---- Chat ---- */
+.ee-chat-threads {
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+    padding-bottom: 4px;
+    flex-wrap: nowrap;
+}
+
+.ee-chat-threads .ee-subsection-tab {
+    white-space: nowrap;
+    font-size: 11px;
+    flex-shrink: 0;
+}
+
+.ee-chat-messages {
+    flex: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 4px;
+    min-height: 180px;
+}
+
+.ee-chat-empty {
+    text-align: center;
+    padding: 24px 8px;
+}
+
+.ee-chat-msg {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+}
+
+.ee-chat-msg--mine { align-items: flex-end; }
+
+.ee-chat-bubble {
+    background: #f0f0f0;
+    color: var(--color-sf-fg-primary);
+    padding: 6px 10px;
+    border-radius: 10px;
+    max-width: 80%;
+    font-size: 12px;
+    line-height: 1.4;
+}
+
+.ee-chat-msg--mine .ee-chat-bubble {
+    background: #3B8CDE;
+    color: #fff;
+}
+
+.ee-chat-meta { font-size: 10px; margin-top: 2px; }
+
+.ee-chat-input-row {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+}
+
+.ee-chat-input {
+    flex: 1;
+}
+
+/* ---- My Board tab (the renamed Triage Board) ----
+   Styles now live in Components/EmployeeExperience/MyBoardSection.razor.css
+   (scoped to that component). Do not re-add ::deep versions here —
+   Blazor scoped CSS does not cross component boundaries, and the kanban
+   DOM is rendered by MyBoardSection, not by this page. */
+
+/* ---- Sub-section content panel ----
+   The .ee-subsection-content styles below are applied via ::deep to the
+   SfTab content panel (.e-content), because each tab now owns its
+   content via <ContentTemplate>. The hidden stub <section> in the
+   .razor is kept only for accessibility (aria-live region). */
+::deep .e-tab .e-content {
+    background: var(--color-sf-bg-primary);
+    border-radius: 0 0 8px 8px;
+    padding: 20px;
+    box-shadow: var(--shadow-sm);
+    min-height: 320px;
+    border: 1px solid var(--color-sf-border-secondary);
+    border-top: none;
+}
+
+/* ---- Card chrome (deep: shared with sub-section child components) ---- */
+::deep .ee-card {
+    background: var(--color-sf-bg-primary);
+    border: 1px solid var(--color-sf-border-secondary);
+    border-radius: 8px;
+    padding: 16px;
+    box-shadow: var(--shadow-sm);
+}
+
+::deep .ee-section-title {
+    font-size: 15px;
+    font-weight: 600;
+    margin: 0 0 12px 0;
+    color: var(--color-sf-fg-primary);
+}
+
+::deep .ee-muted {
+    color: var(--color-sf-fg-tertiary);
+    font-size: 12px;
+}
+
+/* ---- Placeholder (TODO sub-section ports) ---- */
+::deep .ee-placeholder {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 8px 0;
+}
+
+::deep .ee-placeholder .ee-muted {
+    line-height: 1.5;
+}
+
+/* ---- Dialog forms (deep: shared with sub-section child components) ---- */
+::deep .ee-form {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+
+::deep .ee-form .full {
+    grid-column: 1 / -1;
+}
+
+::deep .ee-field {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+::deep .ee-field label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--color-sf-fg-secondary);
+}
+
+::deep .ee-field .e-input,
+::deep .ee-field .e-control-wrapper.e-textbox,
+::deep .ee-field .e-control-wrapper.e-textarea,
+::deep .ee-field .e-control-wrapper.e-numeric,
+::deep .ee-field .e-control-wrapper.e-ddl {
+    width: 100% !important;
+}
+
+::deep .ee-field-error {
+    display: block;
+    margin-top: 8px;
+    color: var(--color-sf-fg-error-primary);
+    font-size: 12px;
+    font-weight: 500;
+    grid-column: 1 / -1;
+}
+
+/* ---- Kanban card overrides (Triage Board) ----
+   Styles now live in Components/EmployeeExperience/MyBoardSection.razor.css
+   (scoped to that component). Do not re-add non-::deep versions here —
+   Blazor scoped CSS does not cross component boundaries. */
+/* ---- Tab polish (kept for backwards compatibility with any callers
+   that still target the .ee-tab class on <SfTab>) ---- */
+.ee-tab.e-tab {
+    background: transparent !important;
+    border: 0 !important;
+}
+.ee-tab .e-tab-header {
+    border-bottom: 1px solid var(--color-sf-border-secondary) !important;
+    background: var(--color-sf-bg-primary) !important;
+    border-radius: 8px 8px 0 0 !important;
+}
+
+.ee-tab .e-tab .e-tab-text {
+    color: var(--color-sf-fg-secondary) !important;
+    font-weight: 500 !important;
+}
+
+.ee-tab .e-tab.e-active .e-tab-text {
+    color: var(--color-sf-brand-700) !important;
+    font-weight: 600 !important;
+}
+
+/* ---- Responsive ---- */
+@media (max-width: 1024px) {
+    .ee-drawer { width: min(480px, 100vw); }
+}
+
+@media (max-width: 640px) {
+    ::deep .ee-form {
+        grid-template-columns: 1fr;
+    }
+
+    /* On small screens allow the tab bar to scroll horizontally so all
+       6 section labels + the bell stay reachable. The bell keeps its
+       `margin-left: auto` so it stays pinned to the right of the
+       scrolled content. */
+    ::deep .ee-tabs-row .e-tab-header {
+        overflow-x: auto;
+        overflow-y: hidden;
+        flex-wrap: nowrap;
+    }
+    ::deep .ee-modern-tabs .e-toolbar-items {
+        flex-wrap: nowrap;
+    }
+
+    .ee-drawer { width: 100vw; }
+
+    ::deep .ee-board-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+}
+
+/* ---- Reduced motion ---- */
+@media (prefers-reduced-motion: reduce) {
+    .ee-drawer,
+    .ee-drawer-backdrop {
+        transition: none !important;
+        animation: none !important;
+    }
+
+    .ee-bell,
+    .ee-bell-btn,
+    .ee-bell__icon,
+    .ee-bell-btn__icon {
+        transition: none !important;
+    }
+
+    .ee-bell:hover,
+    .ee-bell:active,
+    .ee-bell-btn:hover,
+    .ee-bell-btn:active {
+        transform: none !important;
+        box-shadow: none !important;
+    }
+}
+
+/* ---- Dark mode ---- */
+/* ---- Dark mode ----
+   Kanban dark-mode overrides (tag chip + card hover shadow) live in
+   Components/EmployeeExperience/MyBoardSection.razor.css, scoped to
+   that component. They cannot be expressed from this page because the
+   kanban DOM is rendered inside the child component. */
+
+[data-theme="dark"] .ee-chat-bubble {
+    background: var(--color-sf-bg-tertiary);
+    color: var(--color-sf-fg-primary);
+}
+
+/* ---- Sub-section shared chrome (deep: shared with sub-section child components) ---- */
+::deep .ee-subsection-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+::deep .ee-subsection-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+::deep .ee-subsection-header .ee-section-title {
+    margin: 0;
+}
+
+::deep .ee-card-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+}
+
+::deep .ee-card-row--spaced {
+    margin-bottom: 8px;
+}
+
+::deep .ee-card-title {
+    color: var(--color-sf-brand-solid-primary);
+    font-size: 14px;
+    font-weight: 600;
+}
+
+::deep .ee-card-body {
+    margin: 8px 0;
+    font-size: 13px;
+    color: var(--color-sf-fg-tertiary);
+    line-height: 1.5;
+}
+
+::deep .ee-card-meta {
+    display: flex;
+    gap: 12px;
+    font-size: 12px;
+    color: var(--color-sf-fg-tertiary);
+    flex-wrap: wrap;
+    margin-top: 6px;
+}
+
+::deep .ee-card-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 10px;
+}
+
+::deep .ee-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+::deep .ee-list--spaced {
+    margin-bottom: 20px;
+}
+
+::deep .ee-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 10px;
+    color: #fff;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: capitalize;
+    line-height: 1.5;
+}
+
+::deep .ee-status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+    margin-right: 6px;
+}
+
+::deep .ee-priority-tags {
+    margin-top: 6px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+::deep .ee-form--mt {
+    margin-top: 12px;
+}
+
+::deep .ee-form-actions {
+    align-items: flex-end;
+}
+
+/* ---- Recognition: weekly-volume bars (deep: shared with sub-section child components) ---- */
+::deep .ee-weekly-bars {
+    display: flex;
+    align-items: flex-end;
+    gap: 6px;
+    height: 80px;
+}
+
+::deep .ee-weekly-bar {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    height: 100%;
+    justify-content: flex-end;
+}
+
+::deep .ee-weekly-bar-fill {
+    width: 100%;
+    background: var(--color-sf-brand-500);
+    border-radius: 4px 4px 0 0;
+    min-height: 4px;
+    transition: height 0.3s ease;
+}
+
+::deep .ee-weekly-bar-label {
+    margin-top: 4px;
+    text-align: center;
+}
+
+/* ---- Learning: filter row + match row (deep: shared with sub-section child components) ---- */
+::deep .ee-filter-row {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+    align-items: flex-end;
+}
+
+::deep .ee-filter-count {
+    margin-bottom: 6px;
+}
+
+::deep .ee-empty-filters {
+    padding: 20px;
+    text-align: center;
+}
+
+::deep .ee-match-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: var(--color-sf-fg-tertiary);
+    margin-bottom: 8px;
+}
+
+/* ---- Career: progress + grid polish (deep: shared with sub-section child components) ---- */
+::deep .ee-progress-wrap {
+    margin-bottom: 12px;
+}

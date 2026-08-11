@@ -1,0 +1,61 @@
+<!--
+  CandidatesMindMap — Angular template for the Syncfusion `<ejs-diagram>`
+  mind map. Mirrors `src/screens/HiringPipeline/CandidatesMindMap.tsx`.
+
+  The component is `OnPush`, so we re-render with the inputs rather than
+  mutating instance state directly. The `dataSourceSettings` and `layout`
+  inputs come from signals inside the component, so they update whenever
+  the parent passes a new `candidates` array.
+-->
+@if (isLoading()) {
+  <app-loading-state height="360px"></app-loading-state>
+} @else {
+  <div class="candidates-mindmap">
+    <div class="candidates-mindmap-header">
+      <div>
+        <h3 class="candidates-mindmap-title">Pipeline Distribution</h3>
+        <p class="candidates-mindmap-subtitle">
+          Where active candidates concentrate by department and role
+        </p>
+      </div>
+      <div class="candidates-mindmap-legend" aria-hidden="true">
+        <span class="mindmap-legend-item">
+          <span class="mindmap-swatch" [style.background]="ROOT_FILL"></span>
+          Total
+        </span>
+        <span class="mindmap-legend-item">
+          <span
+            class="mindmap-swatch"
+            [style.background]="DEPARTMENT_FILLS['Engineering']"
+          ></span>
+          Department
+        </span>
+        <span class="mindmap-legend-item">
+          <span
+            class="mindmap-swatch"
+            [style.background]="ROLE_FILL"
+            [style.border]="'1px solid ' + ROLE_STROKE"
+          ></span>
+          Role
+        </span>
+      </div>
+    </div>
+
+    <div class="candidates-mindmap-canvas" #canvas>
+      @if (dataSourceSettings() && layoutSettings()) {
+        <ejs-diagram
+          #diagram
+          id="candidates-mindmap"
+          width="100%"
+          height="520px"
+          [layout]="layoutSettings()"
+          [dataSourceSettings]="dataSourceSettings()"
+          [getNodeDefaults]="getNodeDefaults"
+          [getConnectorDefaults]="getConnectorDefaults"
+          [tool]="diagramTools.ZoomPan"
+          (created)="onDiagramCreated()"
+        ></ejs-diagram>
+      }
+    </div>
+  </div>
+}

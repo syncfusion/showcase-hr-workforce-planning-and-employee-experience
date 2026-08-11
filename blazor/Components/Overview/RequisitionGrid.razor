@@ -1,0 +1,292 @@
+@*
+  Port of src/screens/Overview/components/RequisitionGrid.tsx. Syncfusion
+  SfGrid<ActiveRequisition> with paging/sorting/filtering + a custom
+  icon-only toolbar (Add/Edit/Delete/Update/Cancel), cell templates
+  for department, priority, candidates, stage, and time-open, a custom
+  command column that opens a detail dialog, and a small "time open"
+  column that is hidden below the LG breakpoint.
+
+  Behavior parity with the React version:
+  - Toolbar buttons are icon-only and dispatch to the grid's built-in
+    methods via @ref (Add → addRecord, Edit → startEdit, etc.).
+  - The "Details" command button is identified in CommandClicked by the
+    buttonOption.content we set in the GridCommandColumn.
+  - Priority chip colors mirror the React map:
+      Critical → e-danger, High → e-warning, Medium → e-primary.
+*@
+
+@using BlazorWebApp.Components.Models
+@using BlazorWebApp.Services
+@using Syncfusion.Blazor.Buttons
+@using Syncfusion.Blazor.Grids
+@inject BreakpointService Breakpoint
+
+<div class="mw-req-grid-wrapper">
+    <SfGrid @ref="Grid" TValue="ActiveRequisition"
+            DataSource="@Data"
+            AllowPaging="true"
+            AllowSorting="true"
+            Height="auto"
+            GridLines="GridLine.Horizontal"
+            RowRenderingMode="RowDirection.Horizontal"
+            CssClass="mw-req-grid">
+        <GridEvents TValue="ActiveRequisition" CommandClicked="OnCommandClicked" />
+        <GridPageSettings PageSize="5" PageCount="5" />
+        <GridEditSettings AllowAdding="true"
+                          AllowEditing="true"
+                          AllowDeleting="true"
+                          NewRowPosition="NewRowPosition.Top" />
+        <GridTemplates>
+            <ToolbarTemplate>
+                <div class="mw-req-toolbar">
+                    <SfButton CssClass="e-flat mw-req-toolbar-btn"
+                              Title="Add"
+                              IconCss="e-icons e-plus"
+                              OnClick="HandleAdd" />
+                    <SfButton CssClass="e-flat mw-req-toolbar-btn"
+                              Title="Edit"
+                              IconCss="e-icons e-edit"
+                              OnClick="HandleEdit" />
+                    <SfButton CssClass="e-flat mw-req-toolbar-btn"
+                              Title="Delete"
+                              IconCss="e-icons e-delete"
+                              OnClick="HandleDelete" />
+                    <SfButton CssClass="e-flat mw-req-toolbar-btn"
+                              Title="Update"
+                              IconCss="e-icons e-check"
+                              OnClick="HandleUpdate" />
+                    <SfButton CssClass="e-flat mw-req-toolbar-btn"
+                              Title="Cancel"
+                              IconCss="e-icons e-close"
+                              OnClick="HandleCancel" />
+                </div>
+            </ToolbarTemplate>
+        </GridTemplates>
+        <GridColumns>
+            <GridColumn Field=@nameof(ActiveRequisition.Id)
+                        HeaderText="Id"
+                        Width="90"
+                        TextAlign="TextAlign.Left"
+                        IsPrimaryKey="true"
+                        Visible="false" />
+            <GridColumn Field=@nameof(ActiveRequisition.Position)
+                        HeaderText="Position"
+                        Width="200"
+                        ClipMode="ClipMode.EllipsisWithTooltip"
+                        TextAlign="TextAlign.Left"
+                        ValidationRules="@(new Syncfusion.Blazor.Grids.ValidationRules { Required = true })" />
+            <GridColumn Field=@nameof(ActiveRequisition.Department)
+                        HeaderText="Department"
+                        Width="170"
+                        TextAlign="TextAlign.Left"
+                        ValidationRules="@(new Syncfusion.Blazor.Grids.ValidationRules { Required = true })">
+                <Template>
+                    @{
+                        var row = (context as ActiveRequisition)!;
+                    }
+                    <div class="mw-req-dept" title="@row.Department">
+                        <span class="mw-req-dept__avatar" aria-hidden="true">@row.Department</span>
+                    </div>
+                </Template>
+            </GridColumn>
+            <GridColumn Field=@nameof(ActiveRequisition.Priority)
+                        HeaderText="Priority"
+                        Width="110"
+                        TextAlign="TextAlign.Left"
+                        ValidationRules="@(new Syncfusion.Blazor.Grids.ValidationRules { Required = true })">
+                <Template>
+                    @{
+                        var row = (context as ActiveRequisition)!;
+                        var priorityKey = row.Priority.ToString();
+                        var chipClass = priorityKey switch
+                        {
+                            "Critical" => "e-danger",
+                            "High" => "e-warning",
+                            "Medium" => "e-primary",
+                            _ => "e-success",
+                        };
+                        var priorityTooltip = $"Priority: {row.Priority}";
+                    }
+                    <SfChip CssClass="req-priority-chip" title="@priorityTooltip">
+                        <ChipItems>
+                            <ChipItem Text="@row.Priority.ToString()" CssClass="@($"{chipClass} e-small")"></ChipItem>
+                        </ChipItems>
+                    </SfChip>
+                </Template>
+            </GridColumn>
+            <GridColumn Field=@nameof(ActiveRequisition.Candidates)
+                        HeaderText="Candidates"
+                        Width="120"
+                        TextAlign="TextAlign.Right"
+                        ValidationRules="@(new Syncfusion.Blazor.Grids.ValidationRules { Required = true, Number = true, Min = 0 })">
+                <Template>
+                    @{
+                        var row = (context as ActiveRequisition)!;
+                        var value = row.Candidates;
+                        var tone = value == 0 ? "empty" : value < 5 ? "low" : value < 15 ? "mid" : "high";
+                    }
+                    <div class="@($"mw-req-candidates mw-req-candidates--{tone}")">
+                        <span class="mw-req-candidates__icon" aria-hidden="true">
+                            <svg width="12" height="12" viewBox="0 0 24 24"
+                                 fill="none" stroke="currentColor" stroke-width="2"
+                                 stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                                <circle cx="9" cy="7" r="4" />
+                                <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+                                <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                            </svg>
+                        </span>
+                        <span class="mw-req-candidates__value">@value</span>
+                    </div>
+                </Template>
+            </GridColumn>
+            <GridColumn Field=@nameof(ActiveRequisition.Stage)
+                        HeaderText="Stage"
+                        Width="140"
+                        TextAlign="TextAlign.Left"
+                        ValidationRules="@(new Syncfusion.Blazor.Grids.ValidationRules { Required = true })">
+                <Template>
+                    @{
+                        var row = (context as ActiveRequisition)!;
+                        var stageClass = row.Stage switch
+                        {
+                            "Screening" => "mw-req-stage--screening",
+                            "Interview" => "mw-req-stage--interview",
+                            "Final Round" => "mw-req-stage--final",
+                            "Offer" => "mw-req-stage--offer",
+                            "Filled" => "mw-req-stage--filled",
+                            _ => string.Empty,
+                        };
+                    }
+                    <span class="@($"mw-req-stage {stageClass}")">
+                        <span class="mw-req-stage__dot" aria-hidden="true"></span>
+                        @row.Stage
+                    </span>
+                </Template>
+            </GridColumn>
+            <GridColumn Field=@nameof(ActiveRequisition.TimeOpen)
+                        HeaderText="Time Open"
+                        Width="120"
+                        TextAlign="TextAlign.Left"
+                        MinWidth="110"
+                        Visible="@ShowTimeOpen">
+                <Template>
+                    @{
+                        var row = (context as ActiveRequisition)!;
+                    }
+                    <div class="mw-req-time">
+                        <span class="mw-req-time__icon" aria-hidden="true">
+                            <svg width="12" height="12" viewBox="0 0 24 24"
+                                 fill="none" stroke="currentColor" stroke-width="2"
+                                 stroke-linecap="round" stroke-linejoin="round">
+                                <circle cx="12" cy="12" r="10" />
+                                <polyline points="12 6 12 12 16 14" />
+                            </svg>
+                        </span>
+                        <span class="mw-req-time__value">@row.TimeOpen</span>
+                    </div>
+                </Template>
+            </GridColumn>
+            <GridColumn HeaderText="Details"
+                        Width="130"
+                        TextAlign="TextAlign.Center">
+                <GridCommandColumns>
+                    <GridCommandColumn Type="CommandButtonType.None"
+                                       ButtonOption="@(new CommandButtonOptions { Content = "Details", CssClass = "e-flat mw-req-details-btn" })" />
+                </GridCommandColumns>
+            </GridColumn>
+        </GridColumns>
+    </SfGrid>
+
+    <SfDialog Width="400px"
+              IsModal="true"
+              ShowCloseIcon="true"
+              Visible="@_dialogVisible"
+              Header="Row Information"
+              CloseOnEscape="true">
+        <DialogTemplates>
+            <Content>
+                @if (_selectedRow is not null)
+                {
+                    <div class="req-detail">
+                        <p><b>Position:</b> @_selectedRow.Position</p>
+                        <p><b>Department:</b> @_selectedRow.Department</p>
+                        <p><b>Priority:</b> @_selectedRow.Priority</p>
+                        <p><b>Candidates:</b> @_selectedRow.Candidates</p>
+                        <p><b>Stage:</b> @_selectedRow.Stage</p>
+                        <p><b>Time Open:</b> @_selectedRow.TimeOpen</p>
+                    </div>
+                }
+            </Content>
+        </DialogTemplates>
+        <DialogButtons>
+            <DialogButton Content="Close" OnClick="CloseDialog" />
+        </DialogButtons>
+    </SfDialog>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public ActiveRequisition[] Data { get; set; } = Array.Empty<ActiveRequisition>();
+    [Parameter] public EventCallback<ActiveRequisition> OnView { get; set; }
+
+    private SfGrid<ActiveRequisition>? Grid;
+    private bool _dialogVisible;
+    private ActiveRequisition? _selectedRow;
+
+    private bool ShowTimeOpen => Breakpoint.Current is BreakpointService.Breakpoint.Lg
+                                                       or BreakpointService.Breakpoint.Xl;
+
+    protected override void OnInitialized()
+    {
+        Breakpoint.Changed += OnBreakpointChanged;
+    }
+
+    private void OnBreakpointChanged() => InvokeAsync(StateHasChanged);
+
+    // Toolbar action handlers — same dispatch as the React version:
+    // map each icon button to the matching SfGrid method.
+    private async Task HandleAdd() => await SafeGrid(g => g.AddRecordAsync());
+    private async Task HandleEdit() => await SafeGrid(g => g.StartEditAsync());
+    private async Task HandleDelete() => await SafeGrid(g => g.DeleteRecordAsync());
+    private async Task HandleUpdate() => await SafeGrid(g => g.EndEditAsync());
+    private async Task HandleCancel() => await SafeGrid(g => g.CloseEditAsync());
+
+    private async Task SafeGrid(Func<SfGrid<ActiveRequisition>, Task> action)
+    {
+        if (Grid is null) return;
+        try
+        {
+            await action(Grid);
+        }
+        catch
+        {
+            // The grid's built-in commands no-op or surface a validation
+            // message when there's no active row; swallow so the toolbar
+            // button click never throws into the surrounding page.
+        }
+    }
+
+    private async Task OnCommandClicked(CommandClickEventArgs<ActiveRequisition> args)
+    {
+        // Only the custom "Details" button is wired here; built-in command
+        // types (Edit/Save/Cancel/Delete) are handled by the grid itself.
+        var content = args.CommandColumn?.ButtonOption?.Content;
+        if (!string.Equals(content, "Details", StringComparison.Ordinal))
+            return;
+        if (args.RowData is null) return;
+        _selectedRow = args.RowData;
+        _dialogVisible = true;
+        await OnView.InvokeAsync(args.RowData);
+    }
+
+    private void CloseDialog()
+    {
+        _dialogVisible = false;
+        _selectedRow = null;
+    }
+
+    public void Dispose()
+    {
+        Breakpoint.Changed -= OnBreakpointChanged;
+    }
+}

@@ -1,0 +1,138 @@
+@*
+  Port of the "Create Action Plan" modal that lives in the AI Insight
+  card on the DetailPanel. Extracted into its own Blazor component
+  so it lives in a separate render tree from the QuickActionDialog
+  and the Syncfusion dialog runtime can manage their JS-side state
+  without interference.
+
+  Visibility is fully controlled by the parent via the [Visible]
+  parameter, and the <SfDialog> is only mounted while Visible is
+  true. Every close path (the in-content Close button, the Cancel
+  / Save buttons in the footer, the overlay click) routes through
+  a Blazor-rendered handler that fires the OnClose callback. This
+  avoids relying on Syncfusion's OnClose / Closed C# events on
+  ShowCloseIcon, which don't fire reliably in this Syncfusion
+  Blazor version — leaving _showActionPlanDialog stuck at true
+  and causing the dialog to re-appear on the next parent
+  re-render.
+*@
+
+@using BlazorWebApp.Components.Models
+
+@if (Visible)
+{
+    <SfDialog IsModal="true"
+              Header="Create Action Plan"
+              CloseOnEscape="true"
+              Width="450px"
+              OnOverlayClick="HandleClose"
+              CssClass="detail-panel__action-plan-dialog">
+        <DialogAnimationSettings Effect="DialogEffect.Fade" Duration="200" Delay="0" />
+        <DialogTemplates>
+            <Content>
+                @* In-content Close button positioned at the top-right
+                   of the form. We don't use <SfDialog ShowCloseIcon="true">
+                   because the X icon's OnClose event doesn't fire
+                   reliably in this Syncfusion Blazor version — a
+                   regular <button> wired to @onclick always works. *@
+                <div class="detail-panel__action-plan-body">
+                    <button type="button"
+                            class="detail-panel__action-plan-close"
+                            aria-label="Close"
+                            title="Close"
+                            @onclick="HandleClose">
+                        <span aria-hidden="true">×</span>
+                    </button>
+                    <div class="detail-panel__form">
+                        <div>
+                            <label class="detail-panel__field-label">Plan Name</label>
+                            <input type="text"
+                                   class="detail-panel__input"
+                                   placeholder="e.g., Engagement Recovery - Q3"
+                                   @bind="@_planName" />
+                        </div>
+                        @if (AiInsight is not null && AiInsight.Actions.Length > 0)
+                        {
+                            <div>
+                                <label class="detail-panel__field-label">Focus Areas</label>
+                                <div class="detail-panel__chips">
+                                    @foreach (var action in AiInsight.Actions)
+                                    {
+                                        <label class="detail-panel__chip">
+                                            <input type="checkbox" checked />
+                                            <span>@action.Label</span>
+                                        </label>
+                                    }
+                                </div>
+                            </div>
+                        }
+                        <div>
+                            <label class="detail-panel__field-label">Priority</label>
+                            <select class="detail-panel__input" @bind="@_priority">
+                                <option>High - Immediate attention needed</option>
+                                <option>Medium - Address within 2 weeks</option>
+                                <option>Low - Schedule for next month</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="detail-panel__field-label">Notes</label>
+                            <textarea class="detail-panel__textarea"
+                                      rows="3"
+                                      placeholder="Add context or goals for this action plan..."
+                                      @bind="@_notes"></textarea>
+                        </div>
+                    </div>
+                </div>
+            </Content>
+        </DialogTemplates>
+        <DialogButtons>
+            <DialogButton Content="Cancel" OnClick="HandleClose" />
+            <DialogButton Content="Save Action" IsPrimary="true" OnClick="HandleClose" />
+        </DialogButtons>
+    </SfDialog>
+}
+
+@code {
+    [Parameter, EditorRequired] public bool Visible { get; set; }
+
+    /// <summary>
+    /// The currently-displayed AI insight. Used to pre-check the
+    /// focus-area chips with the actions the AI recommended. May be
+    /// null when the dialog is opened without an insight on screen.
+    /// </summary>
+    [Parameter] public AiInsight? AiInsight { get; set; }
+
+    /// <summary>
+    /// Fires whenever the user closes the dialog. The parent uses
+    /// this to set its own visibility flag to <c>false</c> so the
+    /// dialog stays closed and the @if (Visible) guard unmounts
+    /// the <SfDialog>.
+    /// </summary>
+    [Parameter, EditorRequired] public EventCallback OnClose { get; set; }
+
+    private string _planName = string.Empty;
+    private string _priority = "High - Immediate attention needed";
+    private string _notes = string.Empty;
+
+    /// <summary>
+    /// Reset the form fields every time the dialog transitions from
+    /// closed → open.
+    /// </summary>
+    protected override void OnParametersSet()
+    {
+        if (Visible)
+        {
+            _planName = string.Empty;
+            _notes = string.Empty;
+            _priority = "High - Immediate attention needed";
+        }
+    }
+
+    private async Task HandleClose()
+    {
+        if (OnClose.HasDelegate)
+        {
+            await OnClose.InvokeAsync();
+        }
+    }
+}

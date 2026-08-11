@@ -1,0 +1,18 @@
+.page-header {
+    margin: 0 0 20px 0;
+}
+
+.page-title {
+    margin: 0;
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--color-sf-fg-primary);
+    line-height: 1.2;
+}
+
+.page-subtitle {
+    margin: 6px 0 0 0;
+    font-size: 14px;
+    color: var(--color-sf-fg-tertiary);
+    line-height: 1.4;
+}

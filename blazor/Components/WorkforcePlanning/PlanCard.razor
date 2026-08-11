@@ -1,0 +1,74 @@
+@*
+  PlanCard — the "Plan" stat card on the Workforce Planning summary grid.
+  Port of the inline PlanCard component in src/screens/WorkforcePlanning/index.tsx.
+  Shows the active plan name, a status chip, and the latest snapshot timestamp.
+
+  Uses <SfCard> for the standard Syncfusion card chrome. The visible
+  chrome (border, radius, padding, hover lift) lives on a Blazor-
+  rendered inner <div class="wp-stat-card-sf"> so the scoped CSS in
+  PlanCard.razor.css can match it. The shared .wp-stat-* / .wp-status-
+  chip rules stay in WorkforcePlanning.razor.css and target the inner
+  Blazor-rendered divs.
+*@
+
+@using Syncfusion.Blazor.Cards
+@using Syncfusion.Blazor.Buttons
+
+<SfCard CssClass="wp-stat-card-sf">
+    <div class="wp-stat-card-sf">
+        <div class="wp-stat-header">
+            <span class="wp-stat-label">Plan</span>
+            @if (!string.IsNullOrWhiteSpace(Status))
+            {
+                <SfChip CssClass="@($"wp-status-chip wp-status-chip--{StatusClass}")"
+                        title="@($"Plan status: {Status}")">
+                    <ChipItems>
+                        <ChipItem Text="@Status"
+                                  CssClass="@($"{StatusChipVariant} e-small")">
+                        </ChipItem>
+                    </ChipItems>
+                </SfChip>
+            }
+        </div>
+        <div class="wp-stat-body">
+            <span class="wp-stat-value">@Name</span>
+            <span class="wp-stat-subtext">@SnapshotLabel</span>
+        </div>
+    </div>
+</SfCard>
+
+@code {
+    [Parameter, EditorRequired] public string Name { get; set; } = "";
+    [Parameter] public string? Status { get; set; }
+    [Parameter] public string? LatestSnapshotAt { get; set; }
+
+    private string StatusClass => Status?.ToLowerInvariant() switch
+    {
+        "active" => "active",
+        "draft" => "draft",
+        "archived" => "archived",
+        _ => "outline",
+    };
+
+    // Syncfusion e-* variant for the SfChip, mirrors StatusClass colors.
+    private string StatusChipVariant => Status?.ToLowerInvariant() switch
+    {
+        "active" => "e-success",
+        "draft" => "e-warning",
+        "archived" => "e-info",
+        _ => "e-outline",
+    };
+
+    private string SnapshotLabel =>
+        string.IsNullOrWhiteSpace(LatestSnapshotAt) || LatestSnapshotAt == "Not Taken"
+            ? "No snapshot taken"
+            : $"Snapshot: {FormatDate(LatestSnapshotAt)}";
+
+    private static string FormatDate(string iso)
+    {
+        if (string.IsNullOrEmpty(iso)) return "—";
+        if (DateTimeOffset.TryParse(iso, out var d))
+            return d.ToLocalTime().ToString("MMM d, yyyy");
+        return iso;
+    }
+}

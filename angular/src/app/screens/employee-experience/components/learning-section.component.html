@@ -1,0 +1,110 @@
+@if (isLoading()) {
+  <app-loading-state height="300px"></app-loading-state>
+} @else if (error()) {
+  <app-error-state
+    [message]="error()!"
+    [onRetry]="retryFn"
+    (retry)="retry()"
+  ></app-error-state>
+} @else if (items().length === 0) {
+  <app-empty-state
+    title="No learning recommendations yet"
+    description="Recommendations appear when you have a career plan with active milestones."
+  ></app-empty-state>
+} @else {
+  <div>
+    <h3 class="ee-section-title">Learning Recommendations</h3>
+
+    <div class="ee-filters">
+      <div class="ee-field" style="min-width: 160px;">
+        <label for="learn-status-filter">Status</label>
+        <ejs-dropdownlist
+          id="learn-status-filter"
+          [dataSource]="statusOptions"
+          [fields]="{ text: 'label', value: 'value' }"
+          [value]="statusFilter()"
+          (change)="onStatusFilterChange($any($event).value)"
+        ></ejs-dropdownlist>
+      </div>
+      <div class="ee-field" style="min-width: 160px;">
+        <label for="learn-format-filter">Format</label>
+        <ejs-dropdownlist
+          id="learn-format-filter"
+          [dataSource]="formatOptions"
+          [fields]="{ text: 'label', value: 'value' }"
+          [value]="formatFilter()"
+          (change)="onFormatFilterChange($any($event).value)"
+        ></ejs-dropdownlist>
+      </div>
+      <div class="ee-muted ee-filter-count">{{ filtered().length }} item(s)</div>
+    </div>
+
+    @if (filtered().length === 0) {
+      <p class="ee-muted ee-empty-filter">
+        No recommendations match the selected filters.
+      </p>
+    } @else {
+      <div class="ee-list">
+        @for (l of filtered(); track l.id) {
+          <div class="ee-card">
+            <div class="ee-card__row">
+              <div>
+                <strong class="ee-card__title">{{ l.title }}</strong>
+                <div class="ee-muted">
+                  {{ formatLabel(l.format) }}
+                  @if (l.provider) {
+                    • {{ l.provider }}
+                  }
+                  @if (l.estHours) {
+                    • {{ l.estHours }}h
+                  }
+                  @if (l.skillTag) {
+                    • {{ l.skillTag }}
+                  }
+                </div>
+              </div>
+              <span class="ee-badge" style="background: #6C757D;">{{ l.status }}</span>
+            </div>
+            @if (l.reason) {
+              <p class="ee-card__details">{{ l.reason }}</p>
+            }
+            @if (l.matchScore != null) {
+              <div class="ee-match">
+                <span>Match: <strong>{{ matchScorePercent(l.matchScore) }}%</strong></span>
+                <ejs-progressbar
+                  [id]="'match-' + l.id"
+                  type="Linear"
+                  [height]="'4px'"
+                  width="160px"
+                  [value]="matchScorePercent(l.matchScore)"
+                  progressColor="#28A745"
+                  trackColor="#f0f0f0"
+                  [showProgressValue]="false"
+                  [animation]="{ enable: false }"
+                ></ejs-progressbar>
+              </div>
+            }
+            <div class="ee-actions">
+              @if (l.status === 'suggested') {
+                <button type="button" class="e-btn e-flat" (click)="setStatus(l.id, 'saved')">Save</button>
+                <button type="button" class="e-btn e-flat" (click)="setStatus(l.id, 'in-progress')">Start</button>
+                <button type="button" class="e-btn e-flat" (click)="setStatus(l.id, 'dismissed')">Dismiss</button>
+              }
+              @if (l.status === 'saved') {
+                <button type="button" class="e-btn e-flat" (click)="setStatus(l.id, 'in-progress')">Start</button>
+                <button type="button" class="e-btn e-flat" (click)="setStatus(l.id, 'dismissed')">Dismiss</button>
+              }
+              @if (l.status === 'in-progress') {
+                <button type="button" class="e-btn e-flat" (click)="setStatus(l.id, 'completed')">Complete</button>
+                <button type="button" class="e-btn e-flat" (click)="setStatus(l.id, 'dismissed')">Dismiss</button>
+              }
+              @if (l.status === 'completed' || l.status === 'dismissed') {
+                <button type="button" class="e-btn e-flat" (click)="setStatus(l.id, 'suggested')">Reset</button>
+              }
+            </div>
+          </div>
+        }
+      </div>
+    }
+  </div>
+}

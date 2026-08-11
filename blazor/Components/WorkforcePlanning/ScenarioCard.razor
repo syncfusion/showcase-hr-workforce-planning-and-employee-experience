@@ -1,0 +1,76 @@
+@*
+  ScenarioCard — the "Selected Scenario" stat card.
+  Port of the inline ScenarioCard component in src/screens/WorkforcePlanning/index.tsx.
+
+  Uses <SfCard> for the standard Syncfusion card chrome. The visible
+  chrome lives on a Blazor-rendered inner <div class="wp-stat-card-sf">;
+  ScenarioCard.razor.css matches it via the [b-scope] attribute. The
+  shared .wp-stat-* / .wp-confidence-chip / .wp-scenario-meta rules
+  stay in WorkforcePlanning.razor.css.
+*@
+
+@using Syncfusion.Blazor.Cards
+@using Syncfusion.Blazor.Buttons
+
+<SfCard CssClass="wp-stat-card-sf">
+    <div class="wp-stat-card-sf">
+        <div class="wp-stat-header">
+            <span class="wp-stat-label">Selected Scenario</span>
+            @if (!string.IsNullOrWhiteSpace(Confidence))
+            {
+                <SfChip CssClass="@($"wp-confidence-chip wp-confidence-chip--{ConfidenceClass}")"
+                        title="@($"Scenario confidence: {Confidence}")">
+                    <ChipItems>
+                        <ChipItem Text="@Confidence"
+                                  CssClass="@($"{ConfidenceChipVariant} e-small")">
+                        </ChipItem>
+                    </ChipItems>
+                </SfChip>
+            }
+        </div>
+        <div class="wp-stat-body">
+            <span class="wp-stat-value">@Name</span>
+            @if (HeadcountTarget.HasValue || BudgetImpact.HasValue)
+            {
+                <div class="wp-scenario-meta">
+                    @if (HeadcountTarget.HasValue)
+                    {
+                        <span><strong>@HeadcountTarget.Value.ToString("N0")</strong> FTE</span>
+                    }
+                    @if (BudgetImpact.HasValue)
+                    {
+                        <span><strong>$@((BudgetImpact.Value / 1_000_000.0).ToString("0.00"))M</strong> Budget</span>
+                    }
+                </div>
+            }
+        </div>
+    </div>
+</SfCard>
+
+@code {
+    [Parameter, EditorRequired] public string Name { get; set; } = "";
+    [Parameter] public string? Confidence { get; set; }
+    [Parameter] public int? HeadcountTarget { get; set; }
+    [Parameter] public double? BudgetImpact { get; set; }
+
+    private string ConfidenceClass => Confidence?.ToLowerInvariant() switch
+    {
+        "high" => "high",
+        "medium" => "medium",
+        "low" => "low",
+        _ => "outline",
+    };
+
+    // Syncfusion e-* variant for the SfChip. Confidence convention:
+    //   high   → e-danger  (red — high confidence isn't "good", it's "loud")
+    //   medium → e-warning (amber)
+    //   low    → e-success (green — quietly confident)
+    // The original wp-confidence-badge* CSS used the same mapping.
+    private string ConfidenceChipVariant => Confidence?.ToLowerInvariant() switch
+    {
+        "high" => "e-danger",
+        "medium" => "e-warning",
+        "low" => "e-success",
+        _ => "e-outline",
+    };
+}

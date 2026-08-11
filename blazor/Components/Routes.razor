@@ -1,0 +1,13 @@
+﻿@* Apply InteractiveServer at the router so the layout, NavMenu,
+   ThemeSwitcher, and every routed page share one circuit. Without
+   this, the layout SSRs statically and the ThemeSwitcher's
+   @onclick never reaches the server. Pages no longer need their
+   own @rendermode — this applies transitively. *@
+@rendermode InteractiveServer
+
+<Router AppAssembly="typeof(Program).Assembly" NotFoundPage="typeof(Pages.NotFound)">
+    <Found Context="routeData">
+        <RouteView RouteData="routeData" DefaultLayout="typeof(Layout.MainLayout)" />
+        <FocusOnNavigate RouteData="routeData" Selector="h1" />
+    </Found>
+</Router>

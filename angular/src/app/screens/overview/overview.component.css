@@ -1,0 +1,182 @@
+:host { display: block; }
+
+.overview-screen {
+  animation: fadeIn 0.3s ease-in;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.overview-layout {
+  display: flex;
+  gap: 24px;
+  align-items: flex-start;
+}
+
+.overview-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.overview-sidebar {
+  width: 320px;
+  flex-shrink: 0;
+  position: sticky;
+  top: 16px;
+  background: var(--color-sf-bg-primary);
+  border: 1px solid var(--color-sf-border-secondary);
+  border-radius: 12px;
+  box-shadow: var(--shadow-default);
+  padding: 20px;
+}
+
+.kpi-grid {
+  display: flex;
+  flex-direction: row;
+  gap: 20px;
+  width: 100%;
+}
+
+.kpi-grid > app-kpi-card {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+/* Card style for KPI widgets — matches reference design */
+::ng-deep .kpi-grid .e-card {
+  border-radius: 12px !important;
+  border: 1px solid var(--color-sf-border-secondary) !important;
+  box-shadow: var(--shadow-default) !important;
+  transition: box-shadow 0.2s ease, transform 0.2s ease !important;
+}
+::ng-deep .kpi-grid .e-card:hover {
+  box-shadow: var(--shadow-md) !important;
+  transform: translateY(-1px);
+}
+
+.section-container {
+  background: var(--color-sf-bg-primary);
+  border-radius: 12px;
+  padding: 24px;
+  border: 1px solid var(--color-sf-border-secondary);
+  box-shadow: var(--shadow-default);
+  transition: box-shadow 0.2s ease;
+}
+.section-container:hover {
+  box-shadow: var(--shadow-md);
+}
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--color-sf-border-tertiary);
+}
+
+.section-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-sf-fg-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.section-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+/* Grid styling polish */
+::ng-deep .section-container .e-grid {
+  border: none !important;
+  font-family: inherit !important;
+}
+::ng-deep .section-container .e-grid .e-headercell,
+::ng-deep .section-container .e-grid .e-headercelldiv {
+  background: var(--color-sf-bg-secondary-subtle) !important;
+  color: var(--color-sf-fg-secondary) !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.5px !important;
+}
+::ng-deep .section-container .e-grid .e-rowcell {
+  font-size: 13px !important;
+  color: var(--color-sf-fg-primary) !important;
+}
+::ng-deep .section-container .e-grid .e-row:hover .e-rowcell {
+  background: var(--color-sf-bg-secondary-subtle) !important;
+}
+
+/* New Plan Dialog */
+.new-plan-dialog {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 8px 0;
+}
+.new-plan-dialog__field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.new-plan-dialog__label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-sf-fg-tertiary);
+}
+
+/* Detail Panel sidebar polish */
+::ng-deep .overview-sidebar .detail-panel {
+  gap: 20px !important;
+}
+
+@media (max-width: 1280px) {
+  .overview-sidebar {
+    width: 280px;
+    padding: 16px;
+  }
+  .kpi-grid {
+    gap: 16px;
+  }
+}
+
+@media (max-width: 768px) {
+  .overview-layout {
+    flex-direction: column;
+    gap: 16px;
+  }
+  .overview-sidebar {
+    width: 100%;
+    max-width: 100%;
+    padding: 14px;
+    position: static;
+  }
+  .kpi-grid {
+    flex-wrap: wrap;
+    gap: 16px;
+  }
+  .kpi-grid > app-kpi-card {
+    flex: 1 1 calc(50% - 8px);
+  }
+  .section-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 12px 16px;
+  }
+}

@@ -1,0 +1,34 @@
+@*
+  Port of src/components/states/LoadingState.tsx — centered Syncfusion spinner
+  with optional SkeletonBox for content placeholders.
+*@
+
+@if (Variant == VariantKind.Spinner)
+{
+    <div class="loading-state"
+         style="display:flex; align-items:center; justify-content:center;
+                height:@(Height); width:@(Width);">
+        <div class="e-spinner e-spinner-medium">
+            <div class="e-spinner-circle e-spinner-marker"></div>
+        </div>
+    </div>
+}
+else
+{
+    <div class="skeleton-box"
+         style="height:@(Height); width:@(Width);
+                border-radius:@(BorderRadius);
+                background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+                background-size: 200% 100%;
+                animation: skeleton-pulse 1.5s ease-in-out infinite;">
+    </div>
+}
+
+@code {
+    public enum VariantKind { Spinner, Skeleton }
+
+    [Parameter, EditorRequired] public VariantKind Variant { get; set; }
+    [Parameter] public string Height { get; set; } = "200px";
+    [Parameter] public string Width { get; set; } = "100%";
+    [Parameter] public string BorderRadius { get; set; } = "4px";
+}

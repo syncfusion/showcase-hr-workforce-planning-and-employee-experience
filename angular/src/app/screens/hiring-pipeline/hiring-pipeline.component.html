@@ -1,0 +1,271 @@
+<!-- Hiring Pipeline — Candidates view (mirrors src/screens/HiringPipeline/CandidatesView.tsx) -->
+<div class="hiring-pipeline-screen">
+  <app-page-header
+    title="Hiring Pipeline"
+    subtitle="Visualize requisition flow and identify bottlenecks"
+  ></app-page-header>
+
+  @if (isLoading()) {
+    <app-loading-state height="400px"></app-loading-state>
+  } @else if (error(); as err) {
+    <app-error-state
+      [message]="err"
+      (retry)="retry()"
+    ></app-error-state>
+  } @else {
+    <div class="candidates-view">
+      <div class="candidates-header" role="region" aria-label="Candidate Pipeline Tabs">
+        <div class="status-tabs" role="tablist">
+          @for (tab of tabs; track tab.key) {
+            <button
+              type="button"
+              role="tab"
+              [attr.aria-selected]="activeTab() === tab.key"
+              class="status-tab"
+              [class.active]="activeTab() === tab.key"
+              (click)="handleTabChange(tab.key)"
+            >
+              <span class="status-tab-label">{{ tab.label }}</span>
+              <span
+                class="status-tab-count"
+                [class.active]="activeTab() === tab.key"
+              >{{ counts()[tab.key] }}</span>
+            </button>
+          }
+        </div>
+
+        <div class="candidates-actions">
+          @if (!isMobile()) {
+            <div class="view-toggle-inline" role="group" aria-label="View Mode">
+              <button
+                type="button"
+                class="view-toggle-btn"
+                [class.active]="viewMode() === 'list'"
+                [attr.aria-pressed]="viewMode() === 'list'"
+                (click)="setViewMode('list')"
+              >
+                <span class="e-icons e-list-unordered"></span> List
+              </button>
+              <button
+                type="button"
+                class="view-toggle-btn"
+                [class.active]="viewMode() === 'kanban'"
+                [attr.aria-pressed]="viewMode() === 'kanban'"
+                (click)="setViewMode('kanban')"
+              >
+                <span class="e-icons e-columns"></span> Kanban
+              </button>
+            </div>
+          }
+
+          <ejs-dropdownlist
+            id="filter-source"
+            [width]="isCompact() ? '100%' : '160px'"
+            [dataSource]="sourceOptions()"
+            [fields]="sourceFields"
+            placeholder="Filters"
+            [value]="sourceFilter()"
+            (change)="onSourceFilterChange($any($event).value)"
+          ></ejs-dropdownlist>
+        </div>
+      </div>
+
+      @if (filteredBySource().length === 0) {
+        <app-empty-state
+          title="No candidates in this stage"
+          description="Try switching tabs or clearing filters to see applicants."
+        ></app-empty-state>
+      } @else if (effectiveViewMode() === 'list') {
+        <!-- ==================== List view ==================== -->
+        <div
+          class="candidates-grid"
+          [class.candidates-grid-compact]="isCompact()"
+        >
+          <ejs-grid
+            #candidatesGrid
+            [dataSource]="filteredBySource()"
+            [allowPaging]="true"
+            [allowGrouping]="true"
+            [pageSettings]="{
+              pageSize: 10,
+            }"
+            [allowSorting]="true"
+            [allowFiltering]="true"
+            [filterSettings]="{ type: 'FilterBar' }"
+            [height]="isCompact() ? 'auto' : '480'"
+            locale="en-US"
+            [enableAdaptiveUI]="isCompact()"
+            [rowRenderingMode]="isMobile() ? 'Vertical' : 'Horizontal'"
+            (recordDoubleClick)="onGridRecordDoubleClick($any($event))"
+          >
+            <e-columns>
+              <e-column
+                field="fullName"
+                headerText="Full Name"
+                [width]="isCompact() ? 220 : 260"
+                [template]="fullNameColumn"
+              ></e-column>
+              <e-column
+                field="position"
+                headerText="Position"
+                clipMode="EllipsisWithTooltip"
+                [width]="isCompact() ? 160 : 200"
+                [template]="positionColumn"
+              ></e-column>
+              <e-column
+                field="location"
+                headerText="Location"
+                width="140"
+                [visible]="showLocation()"
+              ></e-column>
+              <e-column
+                field="status"
+                headerText="Status"
+                [width]="isCompact() ? 100 : 120"
+                [template]="statusColumn"
+              ></e-column>
+              <e-column
+                field="source"
+                headerText="Source"
+                clipMode="EllipsisWithTooltip"
+                width="110"
+                [visible]="showSource()"
+              ></e-column>
+              <e-column
+                field="appliedAt"
+                headerText="Date"
+                textAlign="Right"
+                [width]="isCompact() ? 110 : 130"
+                [template]="dateColumn"
+              ></e-column>
+            </e-columns>
+
+            <!-- Cell templates -->
+            <ng-template #fullNameColumn let-data>
+              <div class="candidate-cell">
+                <div [class]="avatarClass(data)">
+                  <span>{{ avatarChar(data) }}</span>
+                </div>
+                <div class="candidate-cell-text">
+                  <div class="candidate-name">{{ data.fullName }}</div>
+                  <div class="candidate-email">{{ data.email }}</div>
+                </div>
+                @if (isCompact()) {
+                  <button
+                    type="button"
+                    class="row-action-btn"
+                    aria-label="Open actions"
+                    (click)="openContextMenu(data, $event)"
+                  >
+                    <span class="e-icons e-more-vertical"></span>
+                  </button>
+                }
+              </div>
+            </ng-template>
+
+            <ng-template #positionColumn let-data>
+              <div class="position-cell">
+                <div class="position-title">{{ data.position }}</div>
+                <div class="position-dept">{{ data.department.toUpperCase() }}</div>
+              </div>
+            </ng-template>
+
+            <ng-template #statusColumn let-data>
+              <span class="status-pill" [class]="'status-pill status-' + data.status">
+                <span class="status-dot"></span>
+                {{ statusLabelFor(data.status) }}
+              </span>
+            </ng-template>
+
+            <ng-template #dateColumn let-data>
+              <div class="date-cell">
+                <div class="date-line1">{{ formatRelativeDate(data.appliedAt).line1 }}</div>
+                <div class="date-line2">{{ formatRelativeDate(data.appliedAt).line2 }}</div>
+              </div>
+            </ng-template>
+          </ejs-grid>
+        </div>
+      } @else {
+        <!-- ==================== Kanban view ==================== -->
+        <div
+          class="kanban-container"
+          [class.kanban-container-scroll]="isCompact()"
+        >
+          <ejs-kanban
+            id="candidates-kanban"
+            keyField="status"
+            [dataSource]="filteredBySource()"
+            [allowDragAndDrop]="true"
+            [cardSettings]="cardSettings"
+            (actionComplete)="onKanbanActionComplete($any($event))"
+          >
+            <e-columns>
+              @for (col of kanbanColumns; track col.id) {
+                <e-column
+                  [headerText]="col.headerText"
+                  [keyField]="col.id"
+                ></e-column>
+              }
+            </e-columns>
+
+            <!--
+              Card template — projected through the kanban's ng-content so the
+              Syncfusion wrapper can pick it up at runtime. Mirrors the
+              pattern in kanban-board.component.html. The `#cardSettingsTemplate`
+              reference name must match `cardSettings.template` in the
+              component class.
+            -->
+            <ng-template #cardSettingsTemplate let-data>
+              <div
+                class="candidate-card"
+                [class.candidate-card-compact]="isCompact()"
+              >
+                <div class="candidate-card-row">
+                  <div [class]="'avatar avatar-sm ' + ('avatar-' + (data.initials || '?').charAt(0).toLowerCase())">
+                    <span>{{ avatarChar(data) }}</span>
+                  </div>
+                  <div class="candidate-card-text">
+                    <div class="candidate-card-name">{{ data.fullName }}</div>
+                    <div class="candidate-card-position">{{ data.position }}</div>
+                  </div>
+                </div>
+                <div class="candidate-card-footer">
+                  <span class="status-pill" [class]="'status-pill status-' + data.status">
+                    <span class="status-dot"></span>
+                    {{ statusLabelFor(data.status) }}
+                  </span>
+                  <span class="candidate-card-source">{{ data.source }}</span>
+                </div>
+              </div>
+            </ng-template>
+          </ejs-kanban>
+        </div>
+      }
+    </div>
+  }
+
+  <!--
+    Pipeline Distribution mind map — complements the list/grid with a
+    shape-of-the-pipeline view (root → departments → roles). Mirrors the
+    React `CandidatesMindMap` component; the parent fetches an unfiltered
+    cohort so the mind map doesn't shift when the user changes tabs.
+  -->
+  @if (!isLoading() && !error()) {
+    <app-candidates-mindmap
+      [candidates]="mindMapCandidates()"
+      [isLoading]="mindMapLoading()"
+    ></app-candidates-mindmap>
+  }
+
+  <!--
+    Hidden context menu — Syncfusion mounts it into the body and we drive it
+    programmatically via #applicantContextMenu.open(top, left). Kept inside
+    the template so the #applicantContextMenu reference resolves.
+  -->
+  <ejs-contextmenu
+    #applicantContextMenu
+    id="applicantContextMenu"
+    [items]="contextMenuItems"
+    (select)="onContextMenuSelect($any($event))"
+  ></ejs-contextmenu>
+</div>

@@ -1,0 +1,249 @@
+================================================================================
+OVERVIEW SCREEN — API ENDPOINTS & RESPONSE MODELS
+================================================================================
+Generated from: src/screens/Overview/index.tsx + src/services/mockData.ts
+================================================================================
+
+--------------------------------------------------------------------------------
+1. GET /api/overview/kpi
+--------------------------------------------------------------------------------
+  Purpose:        KPI metrics for the dashboard header cards
+  Mock Data:      kpiData (KpiData interface)
+  Fetch Pattern:  fetchData(kpiData)
+
+  Response JSON:
+  {
+    "headcount": 847,          // number  — total employees
+    "headcountChange": 12,     // number  — % change period-over-period
+    "openRoles": 34,           // number  — total open requisitions
+    "openRolesChange": -5,     // number  — % change
+    "engagementScore": 78,     // number  — 0-100 scale
+    "engagementChange": 3      // number  — point change
+  }
+
+--------------------------------------------------------------------------------
+2. GET /api/overview/kpi-cards
+--------------------------------------------------------------------------------
+  Purpose:        Enhanced KPI card data with trend sparklines for dashboard header cards
+  Mock Data:      kpiCardsData (inline array in mockData.ts)
+  Fetch Pattern:  fetchData(kpiCardsData) via OverviewResponse
+
+  Response JSON (array):
+  [
+    {
+      "title": "Total Headcount",          // string  — card title
+      "value": "847",                       // string  — formatted display value
+      "change": 12,                         // number  — % or point change
+      "trendData": [                        // array of KpiTrendPoint — sparkline data
+        { "x": 1, "yval": 805 },
+        { "x": 2, "yval": 812 },
+        { "x": 3, "yval": 818 },
+        { "x": 4, "yval": 825 },
+        { "x": 5, "yval": 832 },
+        { "x": 6, "yval": 847 }
+      ],
+      "context": "Across 12 departments",   // string  — subtitle / context line
+      "color": "#059669"                    // string  — theme color for trend
+    },
+    {
+      "title": "Open Requisitions",
+      "value": "34",
+      "change": -5,
+      "trendData": [
+        { "x": 1, "yval": 42 },
+        { "x": 2, "yval": 40 },
+        { "x": 3, "yval": 38 },
+        { "x": 4, "yval": 36 },
+        { "x": 5, "yval": 35 },
+        { "x": 6, "yval": 34 }
+      ],
+      "context": "6 critical roles · Avg 18 days open",
+      "color": "#d97706"
+    },
+    {
+      "title": "Engagement Score",
+      "value": "78%",
+      "change": 3,
+      "trendData": [
+        { "x": 1, "yval": 72 },
+        { "x": 2, "yval": 74 },
+        { "x": 3, "yval": 73 },
+        { "x": 4, "yval": 75 },
+        { "x": 5, "yval": 76 },
+        { "x": 6, "yval": 78 }
+      ],
+      "context": "Target: 85%",
+      "showProgress": true,                 // boolean — optional progress ring
+      "progressValue": 78,                  // number  — 0-100, current progress
+      "target": 85,                         // number  — goal value
+      "color": "#3B8CDE"
+    },
+    {
+      "title": "Retention Risk",
+      "value": "23",
+      "change": 5,
+      "trendData": [
+        { "x": 1, "yval": 14 },
+        { "x": 2, "yval": 16 },
+        { "x": 3, "yval": 18 },
+        { "x": 4, "yval": 19 },
+        { "x": 5, "yval": 21 },
+        { "x": 6, "yval": 23 }
+      ],
+      "context": "4 high-risk cohorts",
+      "color": "#dc2626"
+    }
+  ]
+
+  Notes:
+    • `trendData` drives the sparkline charts inside each KPI card.
+    • `showProgress` + `progressValue` + `target` enable the circular progress indicator
+      (e.g., Engagement Score card). When absent, the card shows only value + change.
+    • `riskThreshold` and `riskValue` are applied client-side for conditional styling
+      on the Retention Risk card.
+
+--------------------------------------------------------------------------------
+3. GET /api/overview/requisitions
+--------------------------------------------------------------------------------
+  Purpose:        Active requisitions grid
+  Mock Data:      activeRequisitions (inline array in mockData.ts)
+  Fetch Pattern:  fetchData(activeRequisitions)
+
+  Response JSON (array):
+  [
+    {
+      "id": "ar-1",
+      "position": "Senior Frontend Developer",  // string
+      "department": "Engineering",               // string
+      "priority": "Critical",                    // "Critical" | "High" | "Medium"
+      "candidates": 8,                           // number
+      "stage": "Interview",                      // "Interview" | "Final Round" | "Offer" | "Screening" | "Filled"
+      "timeOpen": "18 days"                      // string
+    }
+  ]
+
+--------------------------------------------------------------------------------
+4. GET /api/overview/activity-timeline
+--------------------------------------------------------------------------------
+  Purpose:        Activity events shown in the sidebar detail panel
+  Mock Data:      activityTimeline (inline — plain objects, not typed)
+  Fetch Pattern:  directly referenced (not fetched async)
+
+  Response JSON (array):
+  [
+    {
+      "id": "tl-1",
+      "title": "Added to Watch List — Engagement below threshold",  // string
+      "detail": "Survey Response — Score: 38/100",                    // string
+      "timestamp": "2h ago"                                          // string  (relative display)
+    }
+  ]
+
+--------------------------------------------------------------------------------
+5. GET /api/overview/employee/{employeeId}/ai-insight
+--------------------------------------------------------------------------------
+  Purpose:        AI-generated insight for a specific employee
+  Mock Data:      aiInsight (inline — plain object)
+  Fetch Pattern:  directly referenced (not fetched async)
+
+  Response JSON:
+  {
+    "employeeId": "emp-sarah-lin",           // string
+    "engagementDrop": 15,                    // number  — point drop
+    "quarter": "Q4",                         // string
+    "notes": "Recent 1:1 notes indicate...", // string  (may contain \n newlines)
+    "actions": [                             // array of available actions
+      { "id": "a1", "label": "Schedule 1:1" },
+      { "id": "a2", "label": "View Full Profile" },
+      { "id": "a3", "label": "Assign Mentor" },
+      { "id": "a4", "label": "Update Risk Status" }
+    ]
+  }
+
+--------------------------------------------------------------------------------
+6. GET /api/overview/action-plans
+--------------------------------------------------------------------------------
+  Purpose:        Action plans section below requisitions grid
+  Mock Data:      actionPlans (inline — plain objects)
+  Fetch Pattern:  directly referenced (not fetched async)
+
+  Response JSON (array):
+  [
+    {
+      "id": "ap-1",
+      "title": "Customer Success Retention",          // string
+      "description": "4 employees with engagement < 40%", // string
+      "category": "HIGH RISK COHORT",                  // string
+      "statusColor": "danger",                          // "primary" | "success" | "warning" | "danger"
+      "statusLabel": "Urgent",                          // string
+      "progress": 60                                    // number  — 0-100
+    }
+  ]
+
+================================================================================
+FULL TYPE REFERENCE (from src/types/index.ts)
+================================================================================
+
+KpiData
+  headcount: number
+  headcountChange: number
+  openRoles: number
+  openRolesChange: number
+  engagementScore: number
+  engagementChange: number
+
+KpiTrendPoint
+  x: number          // index / time step
+  yval: number      // value at that step
+
+KpiCardData
+  title: string
+  value: string
+  change: number
+  trendData: KpiTrendPoint[]
+  context: string
+  showProgress?: boolean
+  progressValue?: number
+  target?: number
+  color: string
+
+ActiveRequisition
+  id: string
+  position: string
+  department: string
+  priority: "Critical" | "High" | "Medium"
+  candidates: number
+  stage: "Interview" | "Final Round" | "Offer" | "Screening" | "Filled"
+  timeOpen: string
+
+ActivityTimelineEvent
+  id: string
+  title: string
+  detail: string
+  timestamp: string
+
+AiInsight
+  employeeId: string
+  engagementDrop: number
+  quarter: string
+  notes: string
+  actions: { id: string; label: string }[]
+
+ActionPlan
+  id: string
+  title: string
+  description: string
+  category: string
+  statusColor: "primary" | "success" | "warning" | "danger"
+  statusLabel: string
+  progress: number
+
+================================================================================
+SUMMARY — ENDPOINTS TO IMPLEMENT
+================================================================================
+  1. GET /api/overview/kpi                  → KpiData
+  2. GET /api/overview/kpi-cards              → KpiCardData[]
+  3. GET /api/overview/requisitions          → ActiveRequisition[]
+  4. GET /api/overview/activity-timeline     → ActivityTimelineEvent[]
+  5. GET /api/overview/employee/:id/ai-insight → AiInsight
+  6. GET /api/overview/action-plans          → ActionPlan[]

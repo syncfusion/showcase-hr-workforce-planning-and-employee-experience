@@ -1,0 +1,77 @@
+@*
+  PlanPeriodCard — the "Planning Period" stat card with start/end timeline.
+  Port of the inline PlanPeriodCard component in src/screens/WorkforcePlanning/index.tsx.
+
+  Uses <SfCard> for the standard Syncfusion card chrome. The visible
+  chrome lives on a Blazor-rendered inner <div class="wp-period-card-sf">;
+  PlanPeriodCard.razor.css matches it via the [b-scope] attribute. The
+  shared timeline / chip rules stay in WorkforcePlanning.razor.css.
+*@
+@using Syncfusion.Blazor.Cards
+@using Syncfusion.Blazor.Buttons
+
+<SfCard CssClass="wp-period-card-sf">
+    <div class="wp-period-card-sf">
+        <div class="wp-stat-header">
+            <span class="wp-stat-label">Planning Period</span>
+            @if (!string.IsNullOrEmpty(Duration))
+            {
+                // Use the same SfChip pill as the PlanCard "Active" badge so
+                // both badges share identical chrome (height, padding,
+                // radius, no internal text gaps).
+                <SfChip CssClass="wp-status-chip wp-period-chip"
+                        title="@($"Planning period: {Duration}")">
+                    <ChipItems>
+                        <ChipItem Text="@Duration"
+                                  CssClass="e-success e-small">
+                        </ChipItem>
+                    </ChipItems>
+                </SfChip>
+            }
+        </div>
+        <div class="wp-stat-body">
+            <div class="wp-period-timeline">
+                <div class="wp-timeline-track">
+                    <div class="wp-timeline-progress"></div>
+                </div>
+                <div class="wp-timeline-labels">
+                    <div class="wp-timeline-point">
+                        <span class="wp-timeline-date">@StartLabel</span>
+                        <span class="wp-timeline-tag">Start</span>
+                    </div>
+                    <div class="wp-timeline-point wp-timeline-end">
+                        <span class="wp-timeline-date">@EndLabel</span>
+                        <span class="wp-timeline-tag">End</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</SfCard>
+
+@code {
+    [Parameter] public string Start { get; set; } = "";
+    [Parameter] public string End { get; set; } = "";
+
+    private string StartLabel => FormatDate(Start);
+    private string EndLabel => FormatDate(End);
+    private string Duration => ComputeDuration(Start, End);
+
+    private static string FormatDate(string iso)
+    {
+        if (string.IsNullOrWhiteSpace(iso)) return "—";
+        if (DateTimeOffset.TryParse(iso, out var d))
+            return d.ToLocalTime().ToString("MMM d, yyyy");
+        return iso;
+    }
+
+    private static string ComputeDuration(string startIso, string endIso)
+    {
+        if (!DateTimeOffset.TryParse(startIso, out var s) ||
+            !DateTimeOffset.TryParse(endIso, out var e)) return "";
+        var days = (int)Math.Round((e - s).TotalDays);
+        if (days < 30) return $"{days} days";
+        var months = (int)Math.Round(days / 30.0);
+        return months == 1 ? "1 month" : $"{months} months";
+    }
+}

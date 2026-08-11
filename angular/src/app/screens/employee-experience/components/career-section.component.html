@@ -1,0 +1,113 @@
+@if (isLoading()) {
+  <app-loading-state height="300px"></app-loading-state>
+} @else if (error()) {
+  <app-error-state
+    [message]="error()!"
+    [onRetry]="retryFn"
+    (retry)="retry()"
+  ></app-error-state>
+} @else if (plans().length === 0) {
+  <app-empty-state
+    title="No career plan yet"
+    description="Create a career development plan with milestones to track your growth."
+    actionLabel="Create a Career Plan"
+    [onAction]="noopFn"
+    (action)="noopFn()"
+  ></app-empty-state>
+} @else {
+  <div class="ee-list">
+    @for (plan of plans(); track plan.id) {
+      <div class="ee-card">
+        <div class="ee-card__row" style="margin-bottom: 8px;">
+          <div>
+            <strong class="ee-card__title">{{ plan.employeeName }}</strong>
+            <div class="ee-muted">
+              {{ plan.currentRole }}
+              @if (plan.targetRole) {
+                → <strong>{{ plan.targetRole }}</strong>
+              } @else {
+                → Exploratory
+              }
+            </div>
+          </div>
+          <span class="ee-badge" [style.background]="statusColor(plan.status)">
+            {{ statusLabel(plan.status) }}
+          </span>
+        </div>
+
+        <div class="ee-card__meta" style="margin-bottom: 12px;">
+          <span>⏳ {{ horizonLabels[plan.horizon] }}</span>
+          <span>
+            📊 {{ completedCount(plan) }}/{{ plan.milestones.length }} milestones
+            ({{ progressFor(plan) }}%)
+          </span>
+          @if (plan.lastReviewedAt) {
+            <span>🔍 Reviewed {{ formatDate(plan.lastReviewedAt) }}</span>
+          }
+        </div>
+
+        <div style="margin-bottom: 12px;">
+          <ejs-progressbar
+            [id]="'career-progress-' + plan.id"
+            type="Linear"
+            [height]="'8px'"
+            [value]="progressFor(plan)"
+            [trackThickness]="8"
+            [progressThickness]="8"
+            [animation]="{ enable: true, duration: 800 }"
+          ></ejs-progressbar>
+        </div>
+
+        <ejs-grid
+          [dataSource]="plan.milestones"
+          [allowPaging]="false"
+          [allowSorting]="false"
+          height="auto"
+        >
+          <e-columns>
+            <e-column field="title" headerText="Milestone" clipMode="EllipsisWithTooltip" width=150></e-column>
+            <e-column
+              field="targetDate"
+              headerText="Target"
+              [template]="dateCell"
+              width='80' textAlign='Right'
+            ></e-column>
+            <e-column
+              field="status"
+              headerText="Status"
+              [template]="statusCell"
+              width='110'
+            ></e-column>
+            <e-column
+              headerText="Update"
+              [template]="updateCell"
+              width='120'
+            ></e-column>
+          </e-columns>
+
+          <ng-template #dateCell let-data>
+            {{ formatDate(data.targetDate) }}
+          </ng-template>
+          <ng-template #statusCell let-data>
+            <span class="ee-badge" [style.background]="milestoneStatusColor(data.status)">
+              {{ milestoneStatusLabel(data.status) }}
+            </span>
+          </ng-template>
+          <ng-template #updateCell let-data>
+            <div (click)="$event.stopPropagation()">
+              <ejs-dropdownlist
+                [id]="'status-' + data.id"
+                [dataSource]="milestoneStatusOptions"
+                [fields]="milestoneStatusFields"
+                [text]="milestoneStatusLabel(data.status)"
+                [value]="data.status"
+                (change)="onMilestoneChange(plan.id, data.id, $any($event).value)"
+                width="130px"
+              ></ejs-dropdownlist>
+            </div>
+          </ng-template>
+        </ejs-grid>
+      </div>
+    }
+  </div>
+}

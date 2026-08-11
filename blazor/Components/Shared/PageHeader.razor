@@ -1,0 +1,17 @@
+@*
+  Port of PageHeader in src/components/Layout.tsx — simple h1 with optional
+  subtitle. Used by every screen at the top of the page body.
+*@
+
+<div class="page-header">
+    <h1 class="page-title">@Title</h1>
+    @if (!string.IsNullOrWhiteSpace(Subtitle))
+    {
+        <p class="page-subtitle">@Subtitle</p>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public string Title { get; set; } = "";
+    [Parameter] public string? Subtitle { get; set; }
+}

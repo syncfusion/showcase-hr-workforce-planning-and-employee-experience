@@ -1,0 +1,344 @@
+@*
+  Quick Action confirmation dialog — a single modal that handles every
+  CTA kind emitted by the AI insight card (Schedule 1:1, Send
+  Recognition, Assign Training, Request Pulse Check) plus a generic
+  `message` fallback for AI-supplied actions that don't map to a known
+  form.
+
+  Why one component:
+    All five flows share the same shell — header, employee picker
+    (where applicable), form fields, and a footer with Cancel +
+    primary action. Splitting them into five files would be 5× the
+    boilerplate with no readability win.
+
+  The parent (DetailPanel) owns the sticky toast so clipboard and
+  dialog confirmations share the same feedback channel.
+
+  The X close icon in the header is a Blazor-rendered <button>
+  (not <SfDialog ShowCloseIcon>) because Syncfusion's built-in X
+  close icon doesn't reliably fire OnClose back into C# state in
+  this Blazor version — a regular @onclick always works. This
+  guarantees closing the dialog resets the parent's ActiveCta to
+  null and unmounts the dialog.
+*@
+
+@using BlazorWebApp.Components.Models
+@using static BlazorWebApp.Components.Overview.QuickActionConfig
+
+@if (ActiveCta is not null)
+{
+    <SfDialog IsModal="true"
+              Visible="true"
+              Header="@ResolveHeader(ActiveCta)"
+              CloseOnEscape="true"
+              Width="460px"
+              OnOverlayClick="HandleCancel"
+              CssClass="@($"quick-action-dialog quick-action-dialog--{CssKind(ActiveCta.Kind)}")">
+        <DialogAnimationSettings Effect="DialogEffect.Fade" Duration="200" Delay="0" />
+        <DialogTemplates>
+            <Header>
+                <div class="quick-action-header">
+                    <span>@ResolveHeader(ActiveCta)</span>
+                    <button type="button"
+                            class="quick-action-close"
+                            aria-label="Close"
+                            title="Close"
+                            @onclick="HandleCancel">
+                        <span aria-hidden="true">×</span>
+                    </button>
+                </div>
+            </Header>
+            <Content>
+                <div class="quick-action-form">
+                    @if (ActiveCta.Kind == QuickActionKind.Message)
+                    {
+                        <div class="quick-action-field">
+                            <label class="quick-action-field-label">Message</label>
+                            <div class="quick-action-message-preview">
+                                @(ActiveCta.Body ?? ActiveCta.Label)
+                            </div>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="quick-action-field">
+                            <label class="quick-action-field-label">Employee</label>
+                            <SfDropDownList TValue="string" TItem="PeerOption"
+                                            DataSource="@(PeerDirectory.ToList())"
+                                            Value="@_form.EmployeeId"
+                                            ValueChanged="@(v => _form.EmployeeId = v ?? PeerDirectory[0].Id)"
+                                            Placeholder="Select an employee"
+                                            CssClass="e-outline">
+                                <DropDownListFieldSettings Text="Name" Value="Id" />
+                            </SfDropDownList>
+                        </div>
+
+                        @switch (ActiveCta.Kind)
+                        {
+                            case QuickActionKind.Schedule1on1:
+                                <div class="quick-action-row">
+                                    <div class="quick-action-field">
+                                        <label class="quick-action-field-label">Date</label>
+                                        <input type="date"
+                                               class="quick-action-input"
+                                               value="@_form.MeetingDate"
+                                               @onchange="@(e => _form.MeetingDate = e.Value?.ToString() ?? string.Empty)" />
+                                    </div>
+                                    <div class="quick-action-field">
+                                        <label class="quick-action-field-label">Time</label>
+                                        <input type="time"
+                                               class="quick-action-input"
+                                               value="@_form.MeetingTime"
+                                               @onchange="@(e => _form.MeetingTime = e.Value?.ToString() ?? string.Empty)" />
+                                    </div>
+                                </div>
+                                <div class="quick-action-field">
+                                    <label class="quick-action-field-label">Agenda</label>
+                                    <textarea class="quick-action-textarea"
+                                              rows="3"
+                                              placeholder="What would you like to cover?"
+                                              value="@_form.Agenda"
+                                              @oninput="@(e => _form.Agenda = e.Value?.ToString() ?? string.Empty)"></textarea>
+                                </div>
+                                break;
+
+                            case QuickActionKind.Recognition:
+                                <div class="quick-action-row">
+                                    <div class="quick-action-field">
+                                        <label class="quick-action-field-label">Type</label>
+                                        <SfDropDownList TValue="string" TItem="string"
+                                                        DataSource="@RecognitionTypes.ToList()"
+                                                        Value="@_form.RecognitionType"
+                                                        ValueChanged="@(v => _form.RecognitionType = v ?? RecognitionTypes[0])"
+                                                        Placeholder="Recognition type"
+                                                        CssClass="e-outline" />
+                                    </div>
+                                    <div class="quick-action-field">
+                                        <label class="quick-action-field-label">Company Value</label>
+                                        <SfDropDownList TValue="string" TItem="string"
+                                                        DataSource="@RecognitionValues.ToList()"
+                                                        Value="@_form.RecognitionValue"
+                                                        ValueChanged="@(v => _form.RecognitionValue = v ?? RecognitionValues[0])"
+                                                        Placeholder="Pick a value"
+                                                        CssClass="e-outline" />
+                                    </div>
+                                </div>
+                                <div class="quick-action-field">
+                                    <label class="quick-action-field-label">Audience</label>
+                                    <SfDropDownList TValue="string" TItem="string"
+                                                    DataSource="@RecognitionVisibilities.ToList()"
+                                                    Value="@_form.RecognitionVisibility"
+                                                    ValueChanged="@(v => _form.RecognitionVisibility = v ?? RecognitionVisibilities[0])"
+                                                    Placeholder="Who can see this"
+                                                    CssClass="e-outline" />
+                                </div>
+                                <div class="quick-action-field">
+                                    <label class="quick-action-field-label">Message</label>
+                                    <textarea class="quick-action-textarea"
+                                              rows="3"
+                                              placeholder="Why is this person worth recognizing?"
+                                              value="@_form.RecognitionMessage"
+                                              @oninput="@(e => _form.RecognitionMessage = e.Value?.ToString() ?? string.Empty)"></textarea>
+                                </div>
+                                break;
+
+                            case QuickActionKind.Training:
+                                <div class="quick-action-field">
+                                    <label class="quick-action-field-label">Course</label>
+                                    <SfDropDownList TValue="string" TItem="CourseOption"
+                                                    DataSource="@TrainingCourses.ToList()"
+                                                    Value="@_form.TrainingCourse"
+                                                    ValueChanged="@(v => _form.TrainingCourse = v ?? TrainingCourses[0].Value)"
+                                                    Placeholder="Pick a course"
+                                                    CssClass="e-outline">
+                                        <DropDownListFieldSettings Text="Label" Value="Value" />
+                                    </SfDropDownList>
+                                </div>
+                                <div class="quick-action-field">
+                                    <label class="quick-action-field-label">Due Date</label>
+                                    <input type="date"
+                                           class="quick-action-input"
+                                           value="@_form.TrainingDueDate"
+                                           @onchange="@(e => _form.TrainingDueDate = e.Value?.ToString() ?? string.Empty)" />
+                                </div>
+                                break;
+
+                            case QuickActionKind.Pulse:
+                                <div class="quick-action-field">
+                                    <label class="quick-action-field-label">Cadence</label>
+                                    <SfDropDownList TValue="string" TItem="CadenceOption"
+                                                    DataSource="@PulseCadences.ToList()"
+                                                    Value="@_form.PulseCadence"
+                                                    ValueChanged="@(v => _form.PulseCadence = v ?? PulseCadences[0].Value)"
+                                                    Placeholder="How often?"
+                                                    CssClass="e-outline">
+                                        <DropDownListFieldSettings Text="Label" Value="Value" />
+                                    </SfDropDownList>
+                                </div>
+                                <div class="quick-action-field">
+                                    <label class="quick-action-field-label">Questions (optional)</label>
+                                    <textarea class="quick-action-textarea"
+                                              rows="3"
+                                              placeholder="What would you like the employee to reflect on?"
+                                              value="@_form.PulseQuestions"
+                                              @oninput="@(e => _form.PulseQuestions = e.Value?.ToString() ?? string.Empty)"></textarea>
+                                </div>
+                                break;
+                        }
+                    }
+
+                    @if (_error is not null)
+                    {
+                        <div class="quick-action-error" role="alert">@_error</div>
+                    }
+                </div>
+            </Content>
+            <FooterTemplate>
+                <div class="quick-action-footer">
+                    <SfButton CssClass="e-outline e-small" OnClick="HandleCancel">Cancel</SfButton>
+                    <SfButton CssClass="e-primary e-small" OnClick="HandleSubmit">
+                        @(ActiveCta.Kind == QuickActionKind.Message ? "Copy & Close" : "Send")
+                    </SfButton>
+                </div>
+            </FooterTemplate>
+        </DialogTemplates>
+    </SfDialog>
+}
+
+@code {
+    /// <summary>The CTA the dialog is currently showing. <c>null</c> hides the dialog.</summary>
+    [Parameter, EditorRequired] public QuickAction? ActiveCta { get; set; }
+
+    /// <summary>Preferred employee for the dialog's recipient picker.</summary>
+    [Parameter] public string? DefaultEmployeeId { get; set; }
+
+    [Parameter, EditorRequired] public EventCallback OnClose { get; set; }
+    [Parameter, EditorRequired] public EventCallback<QuickActionResult> OnSubmit { get; set; }
+
+    // The form is re-keyed by the parent's `ActiveCta?.Id` change (via
+    // resetting the local state in `OnParametersSet`), so a new mount
+    // happens on every open and we get a clean form without an
+    // explicit reset effect.
+    private CtaFormState _form = new(string.Empty);
+    private string? _error;
+
+    public sealed class CtaFormState
+    {
+        public string EmployeeId { get; set; }
+        public string MeetingDate { get; set; } = string.Empty;
+        public string MeetingTime { get; set; } = string.Empty;
+        public string Agenda { get; set; } = string.Empty;
+        public string RecognitionType { get; set; } = RecognitionTypes[0];
+        public string RecognitionValue { get; set; } = RecognitionValues[0];
+        public string RecognitionVisibility { get; set; } = RecognitionVisibilities[0];
+        public string RecognitionMessage { get; set; } = string.Empty;
+        public string TrainingCourse { get; set; } = TrainingCourses[0].Value;
+        public string TrainingDueDate { get; set; } = string.Empty;
+        public string PulseCadence { get; set; } = PulseCadences[0].Value;
+        public string PulseQuestions { get; set; } = string.Empty;
+
+        public CtaFormState(string employeeId) { EmployeeId = employeeId; }
+    }
+
+    protected override void OnParametersSet()
+    {
+        // When the parent swaps `ActiveCta` (or toggles between null and a
+        // real CTA), reset the form to a clean state with the right default
+        // employee pre-selected. This mirrors the React `key={activeCta.id}`
+        // remount that gives a fresh form on every open.
+        var resolvedDefault = DefaultEmployeeId is { } id
+                              && PeerDirectory.Any(p => p.Id == id)
+            ? id
+            : PeerDirectory[0].Id;
+        if (_form.EmployeeId != resolvedDefault || _error is not null)
+        {
+            _form = new CtaFormState(resolvedDefault);
+            _error = null;
+        }
+    }
+
+    private static string ResolveHeader(QuickAction cta)
+        => HeaderForKind.TryGetValue(cta.Kind.ToString(), out var h) ? h
+         : cta.Title ?? cta.Label ?? "Quick Action";
+
+    private static string CssKind(QuickActionKind kind) => kind switch
+    {
+        QuickActionKind.Schedule1on1 => "schedule-1on1",
+        QuickActionKind.Recognition => "recognition",
+        QuickActionKind.Training => "training",
+        QuickActionKind.Pulse => "pulse",
+        QuickActionKind.Clipboard => "clipboard",
+        _ => "message",
+    };
+
+    private void HandleCancel() => InvokeAsync(async () => await OnClose.InvokeAsync());
+
+    private void HandleSubmit()
+    {
+        if (ActiveCta is null) return;
+
+        var peer = PeerDirectory.FirstOrDefault(p => p.Id == _form.EmployeeId);
+        var peerName = peer?.Name ?? "the selected employee";
+        string toast;
+        bool ok = true;
+
+        switch (ActiveCta.Kind)
+        {
+            case QuickActionKind.Schedule1on1:
+                if (string.IsNullOrWhiteSpace(_form.MeetingDate) || string.IsNullOrWhiteSpace(_form.MeetingTime))
+                {
+                    ok = false;
+                    toast = "Please pick a date and time for the 1:1.";
+                    break;
+                }
+                toast = $"1:1 invitation drafted for {peerName} on {_form.MeetingDate} at {_form.MeetingTime}.";
+                break;
+
+            case QuickActionKind.Recognition:
+                if (string.IsNullOrWhiteSpace(_form.RecognitionMessage))
+                {
+                    ok = false;
+                    toast = "Please add a short recognition message.";
+                    break;
+                }
+                toast = $"Recognition sent to {peerName} ({_form.RecognitionValue}).";
+                break;
+
+            case QuickActionKind.Training:
+                if (string.IsNullOrWhiteSpace(_form.TrainingDueDate))
+                {
+                    ok = false;
+                    toast = "Please pick a due date for the training.";
+                    break;
+                }
+                toast = $"{_form.TrainingCourse} assigned to {peerName} (due {_form.TrainingDueDate}).";
+                break;
+
+            case QuickActionKind.Pulse:
+                toast = $"Pulse {_form.PulseCadence} survey queued for {peerName}.";
+                break;
+
+            case QuickActionKind.Message:
+            default:
+                toast = "Message copied to clipboard.";
+                break;
+        }
+
+        if (!ok)
+        {
+            _error = toast;
+            return;
+        }
+
+        var clipboardText = ActiveCta.Kind == QuickActionKind.Message
+            ? (ActiveCta.Body ?? ActiveCta.Label)
+            : null;
+
+        var result = new QuickActionResult(ActiveCta.Kind, toast, clipboardText);
+        InvokeAsync(async () =>
+        {
+            await OnSubmit.InvokeAsync(result);
+            await OnClose.InvokeAsync();
+        });
+    }
+}

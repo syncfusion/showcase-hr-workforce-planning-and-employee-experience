@@ -1,0 +1,192 @@
+# Hiring Pipeline — Data Models & API Endpoints
+
+This document lists every piece of mock data consumed by the `HiringPipeline` screen, the TypeScript types involved, and the proposed REST endpoints + request/response formats so the server can be wired up.
+
+---
+
+## 1. Requisitions (main data set)
+
+### Used by
+- `HiringPipeline/index.tsx` via `fetchPipeline(filters)`
+- Derives department & location filter dropdowns from full list
+- Drives kanban board, grid view, and add-new-requisition form
+
+### GET /api/hiring-pipeline/requisitions
+**Query params**
+- `department` (string?, e.g. `Engineering`)
+- `location`   (string?, e.g. `Remote`)
+- `priority`   (string?, one of `low`, `medium`, `high`)
+
+**Expected response** `200 OK`
+```json
+{
+  "data": [
+    {
+      "id": "req-1",
+      "title": "Senior Frontend Engineer",
+      "department": "Engineering",
+      "location": "Remote",
+      "priority": "high",
+      "status": "open",
+      "daysOpen": 12,
+      "hiredCount": 0,
+      "targetCount": 2,
+      "createdAt": "2026-06-05T00:00:00Z"
+    }
+  ]
+}
+```
+
+### POST /api/hiring-pipeline/requisitions
+**Request body**
+```json
+{
+  "title": "Senior Frontend Engineer",
+  "department": "Engineering",
+  "location": "Remote",
+  "priority": "high",
+  "status": "needs_approval",
+  "daysOpen": 0,
+  "hiredCount": 0,
+  "targetCount": 2,
+  "createdAt": "2026-06-24T00:00:00Z"
+}
+```
+*Server assigns `id` field.*
+
+**Expected response** `201 Created`
+```json
+{
+  "id": "req-999",
+  "title": "Senior Frontend Engineer",
+  ...
+}
+```
+
+### PATCH /api/hiring-pipeline/requisitions/{id}/status
+**Request body**
+```json
+{
+  "status": "in_review"
+}
+```
+Allowed values: `needs_approval`, `open`, `in_review`, `offered`, `hired`
+
+**Expected response** `204 No Content` (or `200 OK` with updated entity)
+
+---
+
+## 2. Requisition Type
+
+```ts
+interface Requisition {
+  id: string;
+  title: string;
+  department: string;
+  location: string;
+  priority: 'low' | 'medium' | 'high';
+  status: 'needs_approval' | 'open' | 'in_review' | 'offered' | 'hired';
+  daysOpen: number;
+  hiredCount: number;
+  targetCount: number;
+  createdAt: string; // ISO 8601
+}
+```
+
+---
+
+## 3. Filter Lookups (derived from full requisition list today)
+
+### GET /api/hiring-pipeline/departments
+**Expected response** `200 OK`
+```json
+{
+  "data": ["Engineering", "HR", "Marketing", "Sales"]
+}
+```
+
+### GET /api/hiring-pipeline/locations
+**Expected response** `200 OK`
+```json
+{
+  "data": ["Austin", "Chicago", "New York", "Remote", "San Francisco"]
+}
+```
+
+---
+
+## 4. SLA Risk (pure client helper, no endpoint needed)
+
+### Types
+```ts
+type SLARisk = 'ok' | 'warning' | 'overdue';
+
+interface StageSLA {
+  stage: string;
+  maxHours: number;
+}
+
+interface SLACheckInput {
+  lastActivityAtISO?: string; // ISO 8601
+  daysOpen?: number;
+}
+```
+
+The client computes risk purely from `daysOpen` / `lastActivityAtISO`.  
+No server endpoint required unless you want server-side SLA rules.
+
+---
+
+## 5. Interview / Offer (service-layer, not yet wired into UI)
+
+These exist in `hiringPipelineService.ts` but are not invoked by `HiringPipeline/index.tsx` today.
+
+### POST /api/hiring-pipeline/interviews
+**Request body**
+```json
+{
+  "applicationId": "app-123",
+  "type": "phone",
+  "scheduledStart": "2026-06-25T09:00:00Z",
+  "scheduledEnd": "2026-06-25T10:00:00Z",
+  "interviewers": ["emp-1", "emp-2"]
+}
+```
+Allowed `type` values: `phone`, `technical`, `panel`, `manager`
+
+### POST /api/hiring-pipeline/offers
+**Request body**
+```json
+{
+  "applicationId": "app-123",
+  "compensation": 150000,
+  "currency": "USD",
+  "startDate": "2026-07-15"
+}
+```
+
+---
+
+## 6. Client-side derived metrics
+
+These are computed in the component from the requisition list and do **not** need separate endpoints:
+
+- `metrics.byStatus`      → count per `status`
+- `metrics.totalOpenTargets` → sum of `targetCount`
+- `metrics.totalHired`      → sum of `hiredCount`
+- Total requisitions      → `requisitionList.length`
+
+---
+
+## 7. Mock data reference (to seed the DB)
+
+```json
+[
+  { "id": "req-1", "title": "Senior Frontend Engineer", "department": "Engineering", "location": "Remote",      "priority": "high",   "status": "open",          "daysOpen": 12, "hiredCount": 0, "targetCount": 2, "createdAt": "2026-06-05T00:00:00Z" },
+  { "id": "req-2", "title": "Backend Engineer",       "department": "Engineering", "location": "New York",    "priority": "medium", "status": "in_review",     "daysOpen": 8,  "hiredCount": 0, "targetCount": 3, "createdAt": "2026-06-10T00:00:00Z" },
+  { "id": "req-3", "title": "Product Manager",        "department": "Engineering", "location": "San Francisco","priority": "high",   "status": "needs_approval","daysOpen": 0,  "hiredCount": 0, "targetCount": 1, "createdAt": "2026-06-17T00:00:00Z" },
+  { "id": "req-4", "title": "HR Business Partner",    "department": "HR",           "location": "Chicago",     "priority": "low",    "status": "offered",       "daysOpen": 25, "hiredCount": 0, "targetCount": 1, "createdAt": "2026-05-23T00:00:00Z" },
+  { "id": "req-5", "title": "Account Executive",      "department": "Sales",      "location": "Remote",      "priority": "medium", "status": "hired",          "daysOpen": 30, "hiredCount": 1, "targetCount": 2, "createdAt": "2026-05-18T00:00:00Z" },
+  { "id": "req-6", "title": "Marketing Specialist",   "department": "Marketing",  "location": "Austin",      "priority": "low",    "status": "open",          "daysOpen": 5,  "hiredCount": 0, "targetCount": 1, "createdAt": "2026-06-12T00:00:00Z" }
+]
+```

@@ -1,0 +1,563 @@
+/* Hiring Pipeline — premium styling, ported from the React screen
+   (src/screens/HiringPipeline/index.tsx). All colors come from
+   --color-sf-* design tokens.
+
+   Blazor's scoped CSS rewrites every selector to include a generated
+   attribute. Selectors that target child component DOM (SfGrid, SfKanban,
+   SfDropDownList, SfContextMenu) MUST use ::deep to cross the scope
+   boundary, otherwise the generated attribute will not be on those
+   elements and the styles will silently fail to match.
+
+   The :scope .hiring-pipeline-screen prefix is the only place we own
+   layout; everything else flows through ::deep. */
+
+.hiring-pipeline-screen {
+    animation: hp-fade-in 0.3s ease-in;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+@keyframes hp-fade-in {
+    from { opacity: 0; transform: translateY(10px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .hiring-pipeline-screen { animation: none; }
+}
+
+/* ============================================================
+   Candidates view (matches src/screens/HiringPipeline/CandidatesView.tsx)
+   ============================================================ */
+
+.candidates-view {
+    animation: candidates-fade-in 0.3s ease-in;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+@keyframes candidates-fade-in {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .candidates-view { animation: none; }
+}
+
+/* ---- Header row: tabs + actions ---- */
+.candidates-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin: 4px 0 4px;
+}
+
+.status-tabs {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+.status-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    border: 0;
+    background: transparent;
+    color: var(--color-sf-fg-secondary);
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    border-radius: 6px;
+    white-space: nowrap;
+    position: relative;
+    transition: color 0.15s;
+    font-family: inherit;
+}
+
+.status-tab:hover { color: var(--color-sf-fg-primary); }
+.status-tab.active { color: var(--color-sf-fg-primary); }
+
+.status-tab-count {
+    display: inline-block;
+    min-width: 24px;
+    padding: 2px 6px;
+    font-size: 11px;
+    font-weight: 700;
+    text-align: center;
+    background: var(--color-sf-bg-tertiary);
+    color: var(--color-sf-fg-secondary);
+    border-radius: 4px;
+    line-height: 1.4;
+}
+.status-tab-count.active {
+    background: var(--color-sf-brand-600);
+    color: var(--color-sf-base-white);
+}
+
+.candidates-actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+/* ---- View toggle (List / Kanban) ---- */
+.view-toggle-inline {
+    display: inline-flex;
+    background: var(--color-sf-bg-secondary);
+    border: 1px solid var(--color-sf-border-secondary);
+    border-radius: 8px;
+    padding: 3px;
+}
+.view-toggle-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 10px;
+    border: 0;
+    background: transparent;
+    color: var(--color-sf-fg-secondary);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    border-radius: 6px;
+    font-family: inherit;
+    transition: background 0.15s, color 0.15s;
+}
+.view-toggle-btn:hover { color: var(--color-sf-fg-primary); }
+.view-toggle-btn.active {
+    background: var(--color-sf-bg-primary);
+    color: var(--color-sf-fg-primary);
+    box-shadow: var(--shadow-default);
+}
+
+/* ============================================================
+   Grid (SfGrid internal DOM) — ::deep for cross-scope selectors
+   ============================================================ */
+
+.candidates-grid {
+    background: var(--color-sf-bg-secondary);
+    border-radius: 8px;
+    padding: 0;
+    box-shadow: var(--shadow-default);
+    border: 1px solid var(--color-sf-border-secondary);
+    overflow: hidden;
+}
+
+::deep .candidates-grid .e-grid {
+    border: 0 !important;
+    border-radius: 8px;
+    font-family: inherit !important;
+    background: var(--color-sf-bg-primary) !important;
+    color: var(--color-sf-fg-primary) !important;
+}
+
+::deep .candidates-grid .e-grid .e-headercell,
+::deep .candidates-grid .e-grid .e-headercelldiv {
+    background: var(--color-sf-bg-secondary-subtle) !important;
+    color: var(--color-sf-fg-tertiary) !important;
+    font-size: 11px !important;
+    font-weight: 600 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.5px !important;
+}
+
+::deep .candidates-grid .e-grid .e-rowcell {
+    font-size: 13px !important;
+    color: var(--color-sf-fg-primary) !important;
+    background: var(--color-sf-bg-primary) !important;
+}
+
+::deep .candidates-grid .e-grid .e-row:hover .e-rowcell {
+    background: var(--color-sf-bg-secondary-subtle) !important;
+}
+
+::deep .candidates-grid .e-grid .e-pager {
+    background: var(--color-sf-bg-secondary-subtle) !important;
+    color: var(--color-sf-fg-tertiary) !important;
+    border-top: 1px solid var(--color-sf-border-secondary) !important;
+}
+
+/* ---- Candidate cell (avatar + name/email) ---- */
+.candidate-cell {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 6px 0;
+}
+.candidate-cell-text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+.candidate-name {
+    font-weight: 600;
+    font-size: 14px;
+    color: var(--color-sf-fg-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.candidate-email {
+    font-size: 12px;
+    color: var(--color-sf-fg-quaternary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* ---- Position cell ---- */
+.position-cell {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+.position-title {
+    font-weight: 600;
+    font-size: 14px;
+    color: var(--color-sf-fg-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.position-dept {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.6px;
+    color: var(--color-sf-fg-quaternary);
+}
+
+/* ---- Date cell (relative) ---- */
+.date-cell {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    text-align: right;
+}
+.date-line1 {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--color-sf-fg-primary);
+}
+.date-line2 {
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--color-sf-fg-quaternary);
+    letter-spacing: 0.4px;
+}
+
+/* ============================================================
+   Avatars — gradient per first initial (a..z)
+   ============================================================ */
+
+.avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--color-sf-base-white);
+    font-weight: 700;
+    font-size: 13px;
+    flex-shrink: 0;
+    background: var(--color-sf-brand-600);
+}
+.avatar-sm { width: 32px; height: 32px; font-size: 11px; }
+
+.avatar-a { background: linear-gradient(135deg, #6366f1, #8b5cf6); }
+.avatar-b { background: linear-gradient(135deg, #06b6d4, #3b82f6); }
+.avatar-c { background: linear-gradient(135deg, #f43f5e, #f97316); }
+.avatar-d { background: linear-gradient(135deg, #10b981, #14b8a6); }
+.avatar-e { background: linear-gradient(135deg, #f59e0b, #ef4444); }
+.avatar-f { background: linear-gradient(135deg, #8b5cf6, #ec4899); }
+.avatar-g { background: linear-gradient(135deg, #14b8a6, #06b6d4); }
+.avatar-h { background: linear-gradient(135deg, #ec4899, #f43f5e); }
+.avatar-i { background: linear-gradient(135deg, #3b82f6, #6366f1); }
+.avatar-j { background: linear-gradient(135deg, #f97316, #f59e0b); }
+.avatar-k { background: linear-gradient(135deg, #84cc16, #10b981); }
+.avatar-l { background: linear-gradient(135deg, #a855f7, #6366f1); }
+.avatar-m { background: linear-gradient(135deg, #ef4444, #f97316); }
+.avatar-n { background: linear-gradient(135deg, #0891b2, #6366f1); }
+.avatar-o { background: linear-gradient(135deg, #16a34a, #84cc16); }
+.avatar-p { background: linear-gradient(135deg, #db2777, #f43f5e); }
+.avatar-q { background: linear-gradient(135deg, #0ea5e9, #06b6d4); }
+.avatar-r { background: linear-gradient(135deg, #7c3aed, #a855f7); }
+.avatar-s { background: linear-gradient(135deg, #ea580c, #f59e0b); }
+.avatar-t { background: linear-gradient(135deg, #059669, #10b981); }
+.avatar-u { background: linear-gradient(135deg, #be185d, #db2777); }
+.avatar-v { background: linear-gradient(135deg, #4338ca, #7c3aed); }
+.avatar-w { background: linear-gradient(135deg, #0d9488, #0ea5e9); }
+.avatar-x { background: linear-gradient(135deg, #c2410c, #ea580c); }
+.avatar-y { background: linear-gradient(135deg, #65a30d, #84cc16); }
+.avatar-z { background: linear-gradient(135deg, #9333ea, #c026d3); }
+
+/* ============================================================
+   Status pills — SfChip-based, colour-coded per Applicant status.
+   The inner .e-chip carries the per-status fill, so the per-status
+   classes are .status-pill-chip--{key} .e-chip. The 22px height +
+   1.4 line-height is the same descender-clipping fix used elsewhere.
+   The leading status dot is preserved via a ::before pseudo on the
+   .e-chip (no DOM node, no extra markup).
+
+   IMPORTANT: every selector must use ::deep because SfChip renders
+   its .e-chip element under a different Blazor scope attribute
+   (_bl_<guid>), not the page's b-... scope. Without ::deep the
+   CSS-isolation rewriter appends [b-xxx] to the right-hand side of
+   every selector and the rules silently fail to match — the chip
+   shows up as a transparent pill with no fill. The wrapper class
+   .status-pill-chip lives on the HiringPipeline page's own DOM so
+   it doesn't strictly need ::deep, but we use it on every rule
+   below for consistency. ============================================================ */
+::deep .status-pill-chip {
+    display: inline-flex;
+}
+
+::deep .status-pill-chip .e-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 22px;
+    line-height: 1.4;
+    padding: 0 10px;
+    border-radius: var(--radius-full);
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+    border: 1px solid transparent;
+    cursor: default;
+}
+
+/* The 6px leading dot — equivalent to the previous <span class="status-dot">. */
+::deep .status-pill-chip .e-chip::before {
+    content: '';
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+    flex: 0 0 6px;
+}
+
+::deep .status-pill-chip--new .e-chip {
+    background: var(--color-sf-info-100);
+    color: var(--color-sf-info-700);
+    border-color: var(--color-sf-info-200);
+}
+::deep .status-pill-chip--screening .e-chip {
+    background: #ede9fe;
+    color: #6d28d9;
+    border-color: #ddd6fe;
+}
+::deep .status-pill-chip--interview .e-chip {
+    background: #ffe4e1;
+    color: #b91c1c;
+    border-color: #fecaca;
+}
+::deep .status-pill-chip--offer .e-chip {
+    background: var(--color-sf-success-100);
+    color: var(--color-sf-success-700);
+    border-color: var(--color-sf-success-200);
+}
+::deep .status-pill-chip--hired .e-chip {
+    background: #dcfce7;
+    color: #166534;
+    border-color: #bbf7d0;
+}
+::deep .status-pill-chip--rejected .e-chip {
+    background: #fce7f3;
+    color: #be185d;
+    border-color: #fbcfe8;
+}
+
+/* ============================================================
+   Kanban (SfKanban internal DOM)
+   ============================================================ */
+
+.kanban-container {
+    background: var(--color-sf-bg-secondary);
+    border: 1px solid var(--color-sf-border-secondary);
+    border-radius: 8px;
+    padding: 8px;
+    box-shadow: var(--shadow-default);
+}
+.kanban-container-scroll {
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    padding: 12px;
+}
+
+::deep .kanban-container-scroll .e-kanban-content {
+    display: inline-flex;
+    flex-wrap: nowrap;
+    min-width: max-content;
+}
+::deep .kanban-container-scroll .e-kanban-column {
+    flex: 0 0 240px;
+    max-width: 240px;
+}
+
+::deep .kanban-container .e-kanban {
+    background: transparent !important;
+    border: 0 !important;
+}
+
+::deep .kanban-container .e-kanban .e-kanban-header {
+    background: var(--color-sf-bg-secondary-subtle) !important;
+    color: var(--color-sf-fg-primary) !important;
+    border-bottom: 1px solid var(--color-sf-border-secondary) !important;
+    font-weight: 600 !important;
+}
+
+::deep .kanban-container .e-kanban .e-card {
+    background: var(--color-sf-bg-primary) !important;
+    color: var(--color-sf-fg-primary) !important;
+    border: 1px solid var(--color-sf-border-secondary) !important;
+    border-radius: 8px !important;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04) !important;
+    margin: 0 0 8px 0 !important;
+}
+
+::deep .kanban-container .e-kanban .e-card:hover {
+    border-color: var(--color-sf-brand-600) !important;
+}
+
+::deep .kanban-container .e-kanban .e-card .e-card-header {
+    background: transparent !important;
+    color: var(--color-sf-fg-primary) !important;
+    font-weight: 700 !important;
+    font-size: 13px !important;
+    padding: 8px 10px !important;
+    border-bottom: 1px solid var(--color-sf-border-secondary) !important;
+}
+
+::deep .kanban-container .e-kanban .e-card .e-card-content {
+    padding: 0 !important;
+}
+
+/* ---- Candidate card (template body) ---- */
+.candidate-card {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 12px;
+    background: var(--color-sf-bg-primary);
+    border: 1px solid var(--color-sf-border-secondary);
+    border-radius: 8px;
+    cursor: move;
+    min-height: 120px;
+}
+.candidate-card:hover {
+    border-color: var(--color-sf-brand-600);
+}
+.candidate-card-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.candidate-card-text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+.candidate-card-name {
+    font-weight: 700;
+    font-size: 13px;
+    color: var(--color-sf-fg-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.candidate-card-position {
+    font-size: 11px;
+    color: var(--color-sf-fg-quaternary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.candidate-card-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+.candidate-card-source {
+    font-size: 11px;
+    color: var(--color-sf-fg-quaternary);
+    font-weight: 600;
+}
+
+.candidate-card-compact {
+    min-height: 100px;
+    padding: 8px;
+    gap: 8px;
+}
+.candidate-card-compact .candidate-card-name { font-size: 12px; }
+.candidate-card-compact .candidate-card-position { font-size: 10px; }
+::deep .candidate-card-compact .status-pill-chip .e-chip { font-size: 11px; padding: 0 8px; height: 20px; }
+.candidate-card-compact .candidate-card-source { font-size: 10px; }
+
+/* ============================================================
+   Responsive — xs (<=480), sm (481-768), md (769-1024),
+   lg (1025-1280), xl (>1280). Mirrors BreakpointService buckets.
+   ============================================================ */
+
+/* lg (1025–1280) */
+@media (min-width: 1025px) and (max-width: 1280px) {
+    .candidates-grid { border-radius: 8px; }
+}
+
+/* md (769–1024) */
+@media (min-width: 769px) and (max-width: 1024px) {
+    .candidates-header { gap: 10px; }
+    .candidates-grid { border-radius: 8px; }
+}
+
+/* sm (481–768) — denser tabs, scrollable kanban, full-width dropdown */
+@media (min-width: 481px) and (max-width: 768px) {
+    .candidates-header { gap: 10px; }
+    .status-tab { padding: 5px 6px; font-size: 13px; }
+    .status-tab-count { font-size: 10px; min-width: 22px; }
+    .view-toggle-btn { padding: 5px 8px; font-size: 11px; }
+    .candidate-card-compact { min-height: 90px; padding: 8px; }
+}
+
+/* xs (<=480) — full mobile */
+@media (max-width: 480px) {
+    .hiring-pipeline-screen { animation: none; }
+
+    .candidates-header {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 10px;
+    }
+    .candidates-actions {
+        width: 100%;
+        flex-direction: column;
+        align-items: stretch;
+    }
+    ::deep .candidates-actions .e-ddl {
+        width: 100% !important;
+    }
+    .view-toggle-inline { width: 100%; }
+    .view-toggle-btn { flex: 1; justify-content: center; }
+
+    .candidates-grid-compact { border-radius: 6px; }
+    .status-tab { padding: 6px 10px; font-size: 12px; }
+    .status-tab-count { font-size: 10px; }
+
+    .kanban-container-scroll { padding: 10px; }
+}

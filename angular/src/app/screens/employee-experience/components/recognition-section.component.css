@@ -1,0 +1,97 @@
+/* RecognitionSection styles — mirrors the inline <style> rules from
+   src/screens/EmployeeExperience/components/RecognitionSection.tsx
+   that are scoped to this section. */
+
+:host { display: block; }
+
+.ee-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.ee-section-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--color-sf-fg-primary);
+}
+
+.ee-muted { color: var(--color-sf-fg-tertiary); font-size: 12px; }
+
+.ee-card {
+  background: var(--color-sf-bg-primary);
+  border: 1px solid var(--color-sf-border-secondary);
+  border-radius: 8px;
+  padding: 16px;
+}
+.ee-card + .ee-card { margin-top: 12px; }
+
+.ee-card__row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.ee-card__title {
+  color: var(--color-sf-brand-solid-primary);
+}
+
+.ee-card__details--dark {
+  margin: 8px 0;
+  font-size: 13px;
+  color: #495057;
+}
+
+.ee-card__meta {
+  display: flex;
+  gap: 12px;
+  font-size: 12px;
+  color: #6C757D;
+  flex-wrap: wrap;
+}
+
+.ee-form { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.ee-form .full,
+.ee-field.full { grid-column: 1 / -1; }
+.ee-field { display: flex; flex-direction: column; gap: 4px; }
+.ee-field label { font-size: 12px; font-weight: 600; color: var(--color-sf-fg-secondary); }
+.ee-field .error { color: var(--color-sf-fg-error-primary); font-size: 11px; }
+.ee-field--actions { align-items: flex-end; }
+
+.ee-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 10px;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.ee-list { display: flex; flex-direction: column; gap: 12px; }
+
+.ee-bar-chart {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+  height: 80px;
+}
+.ee-bar-chart__col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.ee-bar-chart__bar {
+  width: 100%;
+  background: #3B8CDE;
+  border-radius: 4px 4px 0 0;
+}
+.ee-bar-chart__label { margin-top: 4px; }
+
+@media (max-width: 640px) {
+  .ee-form { grid-template-columns: 1fr; }
+}

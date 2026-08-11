@@ -1,0 +1,391 @@
+/* =============================================================================
+   Design Tokens — 3-tier system (Syncfusion showcase UX design)
+   -----------------------------------------------------------------------------
+   Tier 1  Primitives ...... raw, theme-agnostic values            -> :root
+   Tier 2  Semantic (light) . intent aliases for the light theme    -> :root
+   Tier 2  Semantic (dark) .. same alias names, dark assignments     -> [data-theme="dark"]
+
+   The --color-sf-* namespace intentionally matches Syncfusion's tailwind3 theme.
+   Dark mode is driven two ways in tandem (see ThemeProvider):
+     - <html data-theme="dark">  flips the semantic aliases below
+     - <body class="e-dark-mode"> flips Syncfusion's own component palette
+   Non-color primitives (spacing, radius, shadow) never change between themes and
+   are consumed directly.
+   ============================================================================= */
+
+/* ----------------------------------------------------------------------------
+   TIER 1 — PRIMITIVES (theme-agnostic)
+   ---------------------------------------------------------------------------- */
+:root {
+  /* Base */
+  --color-sf-base-white: #fff;
+  --color-sf-base-black: #000;
+  --color-sf-base-transparent: transparent;
+  --color-sf-white: #fff;
+  --color-sf-black: #000;
+
+  /* RGB helpers (for rgba() usage in either theme) */
+  --color-sf-gray-100-rgb: 242, 244, 247;
+  --color-sf-gray-600-rgb: 71, 84, 103;
+  --color-sf-gray-900-rgb: 16, 24, 40;
+  --color-sf-brand-600-rgb: 124, 58, 237;
+
+  /* Gray scale */
+  --color-sf-gray-25:  #FCFCFD;
+  --color-sf-gray-50:  #F9FAFB;
+  --color-sf-gray-100: #F2F4F7;
+  --color-sf-gray-200: #EAECF0;
+  --color-sf-gray-300: #D0D5DD;
+  --color-sf-gray-400: #98A1B2;
+  --color-sf-gray-500: #667085;
+  --color-sf-gray-600: #475467;
+  --color-sf-gray-700: #344054;
+  --color-sf-gray-800: #18212F;
+  --color-sf-gray-900: #101828;
+  --color-sf-gray-950: #0C111D;
+
+  /* Brand scale — PURPLE ramp (matches the attached sidebar design). */
+  --color-sf-brand-25:  #FAF5FF;
+  --color-sf-brand-50:  #F3E8FF;
+  --color-sf-brand-100: #E9D5FF;
+  --color-sf-brand-200: #D8B4FE;
+  --color-sf-brand-300: #C084FC;
+  --color-sf-brand-400: #A855F7;
+  --color-sf-brand-500: #9333EA;
+  --color-sf-brand-600: #7C3AED;
+  --color-sf-brand-700: #6D28D9;
+  --color-sf-brand-800: #5B21B6;
+  --color-sf-brand-900: #4C1D95;
+  --color-sf-brand-950: #2E1065;
+
+  /* Error scale */
+  --color-sf-error-25:  #FEFAFA;
+  --color-sf-error-50:  #FEF2F1;
+  --color-sf-error-100: #FEE3E1;
+  --color-sf-error-200: #FECDC9;
+  --color-sf-error-300: #FCA19B;
+  --color-sf-error-400: #F97066;
+  --color-sf-error-500: #F04437;
+  --color-sf-error-600: #D92C20;
+  --color-sf-error-700: #B32218;
+  --color-sf-error-800: #901F17;
+  --color-sf-error-900: #7A2619;
+  --color-sf-error-950: #54150C;
+
+  /* Warning scale */
+  --color-sf-warning-25:  #FFFCF4;
+  --color-sf-warning-50:  #FFF9EB;
+  --color-sf-warning-100: #FEEFC6;
+  --color-sf-warning-200: #FEDE88;
+  --color-sf-warning-300: #FEC84A;
+  --color-sf-warning-400: #FCB022;
+  --color-sf-warning-500: #F78F08;
+  --color-sf-warning-600: #DB6803;
+  --color-sf-warning-700: #B54707;
+  --color-sf-warning-800: #93370C;
+  --color-sf-warning-900: #792D0D;
+  --color-sf-warning-950: #4E1D08;
+
+  /* Success scale */
+  --color-sf-success-25:  #F5FDF9;
+  --color-sf-success-50:  #ECFCF2;
+  --color-sf-success-100: #DBF9E6;
+  --color-sf-success-200: #AAEFC6;
+  --color-sf-success-300: #75DFA6;
+  --color-sf-success-400: #47CD89;
+  --color-sf-success-500: #17B169;
+  --color-sf-success-600: #069454;
+  --color-sf-success-700: #057647;
+  --color-sf-success-800: #075D39;
+  --color-sf-success-900: #074C30;
+  --color-sf-success-950: #043320;
+
+  /* Cyan (info) scale */
+  --color-sf-cyan-25:  #F5FEFF;
+  --color-sf-cyan-50:  #ECFDFF;
+  --color-sf-cyan-100: #CFF9FE;
+  --color-sf-cyan-200: #A5F0FC;
+  --color-sf-cyan-300: #67E3F9;
+  --color-sf-cyan-400: #22CCEE;
+  --color-sf-cyan-500: #06AEDA;
+  --color-sf-cyan-600: #088AB2;
+  --color-sf-cyan-700: #0E7090;
+  --color-sf-cyan-800: #155B75;
+  --color-sf-cyan-900: #164C63;
+  --color-sf-cyan-950: #0D2D3A;
+
+  /* Spacing scale */
+  --spacing-0: 0px;   --spacing-2: 2px;   --spacing-4: 4px;   --spacing-6: 6px;
+  --spacing-8: 8px;   --spacing-10: 10px; --spacing-12: 12px; --spacing-14: 14px;
+  --spacing-16: 16px; --spacing-20: 20px; --spacing-24: 24px; --spacing-28: 28px;
+  --spacing-32: 32px; --spacing-40: 40px; --spacing-48: 48px; --spacing-56: 56px;
+  --spacing-72: 72px;
+
+  /* Typography scale */
+  --font-size-xxs: 10px; --font-size-xs: 12px;  --font-size-sm: 14px;
+  --font-size-base: 16px; --font-size-lg: 18px; --font-size-xl: 20px;
+  --font-size-2xl: 24px; --font-size-3xl: 30px; --font-size-4xl: 36px;
+  --line-height-xxs: 14px; --line-height-xs: 16px; --line-height-sm: 20px;
+  --line-height-base: 24px; --line-height-lg: 28px; --line-height-2xl: 32px;
+  --font-weight-normal: 400; --font-weight-medium: 500;
+  --font-weight-semibold: 600; --font-weight-bold: 700;
+
+  /* Border width */
+  --border-0: 0px; --border-1: 1px; --border-2: 2px; --border-3: 3px; --border-4: 4px;
+
+  /* Border radius */
+  --radius-0: 0px;  --radius-2: 2px;  --radius-4: 4px;  --radius-6: 6px;
+  --radius-8: 8px;  --radius-12: 12px; --radius-14: 14px; --radius-16: 16px;
+  --radius-20: 20px; --radius-24: 24px; --radius-28: 28px; --radius-full: 1000px;
+
+  /* Semantic border radius */
+  --card-sm-radius: var(--radius-8);
+  --card-lg-radius: var(--radius-12);
+  --input-md-radius: var(--radius-6);
+
+  /* Shadows */
+  --shadow-none: 0px 0px 0px rgba(0, 0, 0, 0);
+  --shadow-sm: 0px 1px 2px rgba(16, 24, 40, 0.05);
+  --shadow-default: 0px 1px 3px rgba(0, 0, 0, 0.1), 0px 1px 2px rgba(0, 0, 0, 0.06);
+  --shadow-md: 0px 4px 6px rgba(0, 0, 0, 0.1), 0px 2px 4px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0px 10px 15px rgba(0, 0, 0, 0.1), 0px 4px 6px rgba(0, 0, 0, 0.05);
+  --shadow-xl: 0px 20px 25px rgba(0, 0, 0, 0.1), 0px 10px 10px rgba(0, 0, 0, 0.04);
+  --shadow-card: 0 1px 2px rgba(16, 24, 40, 0.04), 0 1px 3px rgba(16, 24, 40, 0.06);
+  --shadow-card-hover: 0 4px 12px rgba(16, 24, 40, 0.06), 0 2px 4px rgba(16, 24, 40, 0.04);
+
+  /* 8px grid spacing aliases */
+  --space-1: 8px;
+  --space-2: 16px;
+  --space-3: 24px;
+  --space-4: 32px;
+  --space-5: 40px;
+  --space-6: 48px;
+}
+
+/* ----------------------------------------------------------------------------
+   TIER 2 — SEMANTIC (LIGHT)
+   ---------------------------------------------------------------------------- */
+:root {
+  /* Brand */
+  --color-sf-brand-primary: var(--color-sf-brand-600);
+  --color-sf-on-brand-solid-primary: var(--color-sf-base-white);
+  --color-sf-brand-solid-primary: var(--color-sf-brand-600);
+  --color-sf-brand-solid-primary-hover: var(--color-sf-brand-700);
+
+  /* Background */
+  --color-sf-bg-primary: var(--color-sf-base-white);
+  --color-sf-bg-primary-alt: var(--color-sf-base-white);
+  --color-sf-bg-primary-hover: var(--color-sf-gray-50);
+  --color-sf-bg-primary-solid: var(--color-sf-gray-950);
+  --color-sf-bg-secondary: var(--color-sf-gray-50);
+  --color-sf-bg-secondary-alt: var(--color-sf-gray-50);
+  --color-sf-bg-secondary-hover: var(--color-sf-gray-100);
+  --color-sf-bg-secondary-subtle: var(--color-sf-gray-25);
+  --color-sf-bg-tertiary: var(--color-sf-gray-100);
+  --color-sf-bg-quaternary: var(--color-sf-gray-200);
+  --color-sf-bg-active: var(--color-sf-gray-50);
+  --color-sf-bg-disabled: var(--color-sf-gray-100);
+  --color-sf-bg-disabled-subtle: var(--color-sf-gray-50);
+  --color-sf-bg-overlay: var(--color-sf-gray-900);
+  --color-sf-bg-brand-primary: var(--color-sf-brand-50);
+  --color-sf-bg-brand-primary-alt: var(--color-sf-brand-50);
+  --color-sf-bg-brand-secondary: var(--color-sf-brand-100);
+  --color-sf-bg-brand-solid: var(--color-sf-brand-600);
+  --color-sf-bg-brand-solid-hover: var(--color-sf-brand-700);
+  --color-sf-bg-error-primary: var(--color-sf-error-50);
+  --color-sf-bg-error-secondary: var(--color-sf-error-100);
+  --color-sf-bg-error-solid: var(--color-sf-error-600);
+  --color-sf-bg-warning-primary: var(--color-sf-warning-50);
+  --color-sf-bg-warning-secondary: var(--color-sf-warning-100);
+  --color-sf-bg-warning-solid: var(--color-sf-warning-600);
+  --color-sf-bg-success-primary: var(--color-sf-success-50);
+  --color-sf-bg-success-secondary: var(--color-sf-success-100);
+  --color-sf-bg-success-solid: var(--color-sf-success-600);
+  --color-sf-bg-info-primary: var(--color-sf-cyan-50);
+
+  /* Border */
+  --color-sf-border-primary: var(--color-sf-gray-300);
+  --color-sf-border-primary-alt: var(--color-sf-gray-400);
+  --color-sf-border-secondary: var(--color-sf-gray-200);
+  --color-sf-border-tertiary: var(--color-sf-gray-100);
+  --color-sf-border-disabled: var(--color-sf-gray-300);
+  --color-sf-border-brand: var(--color-sf-brand-300);
+  --color-sf-border-brand-solid: var(--color-sf-brand-600);
+  --color-sf-border-error: var(--color-sf-error-300);
+  --color-sf-border-error-solid: var(--color-sf-error-600);
+  --color-sf-border-success: var(--color-sf-success-400);
+  --color-sf-border-warning: var(--color-sf-warning-300);
+  --color-sf-border-info: var(--color-sf-cyan-300);
+
+  /* Foreground */
+  --color-sf-fg-primary: var(--color-sf-gray-900);
+  --color-sf-fg-secondary: var(--color-sf-gray-700);
+  --color-sf-fg-secondary-hover: var(--color-sf-gray-800);
+  --color-sf-fg-tertiary: var(--color-sf-gray-600);
+  --color-sf-fg-tertiary-hover: var(--color-sf-gray-700);
+  --color-sf-fg-quaternary: var(--color-sf-gray-500);
+  --color-sf-fg-quaternary-hover: var(--color-sf-gray-600);
+  --color-sf-fg-quinary: var(--color-sf-gray-400);
+  --color-sf-fg-senary: var(--color-sf-gray-300);
+  --color-sf-fg-on-brand-primary: var(--color-sf-base-white);
+  --color-sf-fg-on-brand-secondary: var(--color-sf-gray-200);
+  --color-sf-fg-white: var(--color-sf-base-white);
+  --color-sf-fg-disabled: var(--color-sf-gray-500);
+  --color-sf-fg-disabled-subtle: var(--color-sf-gray-300);
+  --color-sf-fg-placeholder: var(--color-sf-gray-500);
+  --color-sf-fg-brand-primary: var(--color-sf-brand-600);
+  --color-sf-fg-brand-secondary: var(--color-sf-brand-500);
+  --color-sf-fg-error-primary: var(--color-sf-error-600);
+  --color-sf-fg-error-secondary: var(--color-sf-error-500);
+  --color-sf-fg-warning-primary: var(--color-sf-warning-600);
+  --color-sf-fg-warning-secondary: var(--color-sf-warning-500);
+  --color-sf-fg-success-primary: var(--color-sf-success-600);
+  --color-sf-fg-success-secondary: var(--color-sf-success-500);
+  --color-sf-fg-info-primary: var(--color-sf-cyan-700);
+
+  /* Utility */
+  --color-sf-utility-tooltip-bg: var(--color-sf-gray-950);
+  --color-sf-utility-tooltip-text: var(--color-sf-base-white);
+  --color-sf-utility-overlay-bg-color: rgba(71, 84, 103, .7);
+  --color-sf-utility-avatar-border-color: rgba(0, 0, 0, .075);
+
+  /* Soft pastel status surfaces (paired with text colors). Used for muted
+     pill badges and tag chips so the UI feels layered and SaaS-like rather
+     than relying on saturated primary fills. */
+  --color-sf-status-neutral-bg:    #F1F5F9;  /* slate-100  */
+  --color-sf-status-neutral-text:  #475569;  /* slate-600  */
+  --color-sf-status-info-bg:       #E0F2FE;  /* sky-100    */
+  --color-sf-status-info-text:     #0369A1;  /* sky-700    */
+  --color-sf-status-progress-bg:   #FEF3C7;  /* amber-100  */
+  --color-sf-status-progress-text: #B45309;  /* amber-700  */
+  --color-sf-status-success-bg:    #DCFCE7;  /* green-100  */
+  --color-sf-status-success-text:  #15803D;  /* green-700  */
+  --color-sf-status-danger-bg:     #FEE2E2;  /* red-100    */
+  --color-sf-status-danger-text:   #B91C1C;  /* red-700    */
+  --color-sf-status-brand-bg:      var(--color-sf-brand-50);
+  --color-sf-status-brand-text:    var(--color-sf-brand-700);
+
+  /* Hairline border used for layered section separation. */
+  --color-sf-hairline: #E2E8F0;
+}
+
+/* ----------------------------------------------------------------------------
+   TIER 2 — SEMANTIC (DARK)
+   ---------------------------------------------------------------------------- */
+[data-theme="dark"] {
+  /* Brand */
+  --color-sf-brand-primary: var(--color-sf-brand-500);
+  --color-sf-on-brand-solid-primary: var(--color-sf-base-white);
+  --color-sf-brand-solid-primary: var(--color-sf-brand-600);
+  --color-sf-brand-solid-primary-hover: var(--color-sf-brand-500);
+
+  /* Background */
+  --color-sf-bg-primary: var(--color-sf-gray-950);
+  --color-sf-bg-primary-alt: var(--color-sf-gray-900);
+  --color-sf-bg-primary-hover: var(--color-sf-gray-800);
+  --color-sf-bg-primary-solid: var(--color-sf-gray-900);
+  --color-sf-bg-secondary: var(--color-sf-gray-900);
+  --color-sf-bg-secondary-alt: var(--color-sf-gray-950);
+  --color-sf-bg-secondary-hover: var(--color-sf-gray-800);
+  --color-sf-bg-secondary-subtle: var(--color-sf-gray-900);
+  --color-sf-bg-tertiary: var(--color-sf-gray-800);
+  --color-sf-bg-quaternary: var(--color-sf-gray-700);
+  --color-sf-bg-active: var(--color-sf-gray-800);
+  --color-sf-bg-disabled: var(--color-sf-gray-800);
+  --color-sf-bg-disabled-subtle: var(--color-sf-gray-900);
+  --color-sf-bg-overlay: var(--color-sf-gray-800);
+  --color-sf-bg-brand-primary: var(--color-sf-brand-950);
+  --color-sf-bg-brand-primary-alt: var(--color-sf-gray-900);
+  --color-sf-bg-brand-secondary: var(--color-sf-brand-900);
+  --color-sf-bg-brand-solid: var(--color-sf-brand-600);
+  --color-sf-bg-brand-solid-hover: var(--color-sf-brand-500);
+  --color-sf-bg-error-primary: var(--color-sf-error-950);
+  --color-sf-bg-error-secondary: var(--color-sf-error-900);
+  --color-sf-bg-error-solid: var(--color-sf-error-600);
+  --color-sf-bg-warning-primary: var(--color-sf-warning-950);
+  --color-sf-bg-warning-secondary: var(--color-sf-warning-900);
+  --color-sf-bg-warning-solid: var(--color-sf-warning-600);
+  --color-sf-bg-success-primary: var(--color-sf-success-950);
+  --color-sf-bg-success-secondary: var(--color-sf-success-900);
+  --color-sf-bg-success-solid: var(--color-sf-success-600);
+  --color-sf-bg-info-primary: var(--color-sf-cyan-900);
+
+  /* Border */
+  --color-sf-border-primary: var(--color-sf-gray-700);
+  --color-sf-border-primary-alt: var(--color-sf-gray-600);
+  --color-sf-border-secondary: var(--color-sf-gray-800);
+  --color-sf-border-tertiary: var(--color-sf-gray-800);
+  --color-sf-border-disabled: var(--color-sf-gray-700);
+  --color-sf-border-brand: var(--color-sf-brand-400);
+  --color-sf-border-brand-solid: var(--color-sf-brand-500);
+  --color-sf-border-error: var(--color-sf-error-400);
+  --color-sf-border-error-solid: var(--color-sf-error-500);
+  --color-sf-border-success: var(--color-sf-success-400);
+  --color-sf-border-warning: var(--color-sf-warning-400);
+  --color-sf-border-info: var(--color-sf-cyan-400);
+
+  /* Foreground */
+  --color-sf-fg-primary: var(--color-sf-gray-100);
+  --color-sf-fg-secondary: var(--color-sf-gray-300);
+  --color-sf-fg-secondary-hover: var(--color-sf-gray-200);
+  --color-sf-fg-tertiary: var(--color-sf-gray-400);
+  --color-sf-fg-tertiary-hover: var(--color-sf-gray-300);
+  --color-sf-fg-quaternary: var(--color-sf-gray-400);
+  --color-sf-fg-quaternary-hover: var(--color-sf-gray-300);
+  --color-sf-fg-quinary: var(--color-sf-gray-400);
+  --color-sf-fg-senary: var(--color-sf-gray-600);
+  --color-sf-fg-on-brand-primary: var(--color-sf-gray-100);
+  --color-sf-fg-on-brand-secondary: var(--color-sf-gray-300);
+  --color-sf-fg-white: var(--color-sf-base-white);
+  --color-sf-fg-disabled: var(--color-sf-gray-400);
+  --color-sf-fg-disabled-subtle: var(--color-sf-gray-600);
+  --color-sf-fg-placeholder: var(--color-sf-gray-400);
+  --color-sf-fg-brand-primary: var(--color-sf-brand-400);
+  --color-sf-fg-brand-secondary: var(--color-sf-brand-400);
+  --color-sf-fg-error-primary: var(--color-sf-error-400);
+  --color-sf-fg-error-secondary: var(--color-sf-error-400);
+  --color-sf-fg-warning-primary: var(--color-sf-warning-400);
+  --color-sf-fg-warning-secondary: var(--color-sf-warning-400);
+  --color-sf-fg-success-primary: var(--color-sf-success-400);
+  --color-sf-fg-success-secondary: var(--color-sf-success-400);
+  --color-sf-fg-info-primary: var(--color-sf-cyan-400);
+
+  /* Utility */
+  --color-sf-utility-tooltip-bg: var(--color-sf-gray-200);
+  --color-sf-utility-tooltip-text: var(--color-sf-gray-950);
+  --color-sf-utility-overlay-bg-color: rgba(var(--color-sf-gray-600-rgb), .5);
+  --color-sf-utility-avatar-border-color: rgba(var(--color-sf-gray-100-rgb), .075);
+
+  /* Soft pastel status surfaces (dark theme). Tones are kept readable on the
+     deep-gray surfaces. */
+  --color-sf-status-neutral-bg:    rgba(148, 163, 184, 0.16);
+  --color-sf-status-neutral-text:  #CBD5E1;
+  --color-sf-status-info-bg:       rgba(56, 189, 248, 0.16);
+  --color-sf-status-info-text:     #7DD3FC;
+  --color-sf-status-progress-bg:   rgba(251, 191, 36, 0.16);
+  --color-sf-status-progress-text: #FCD34D;
+  --color-sf-status-success-bg:    rgba(74, 222, 128, 0.16);
+  --color-sf-status-success-text:  #86EFAC;
+  --color-sf-status-danger-bg:     rgba(248, 113, 113, 0.16);
+  --color-sf-status-danger-text:   #FCA5A5;
+  --color-sf-status-brand-bg:      var(--color-sf-brand-900);
+  --color-sf-status-brand-text:    #C4B5FD;
+
+  --color-sf-hairline: var(--color-sf-border-secondary);
+}
+
+/* ----------------------------------------------------------------------------
+   Legacy compatibility shim — maps the original ad-hoc vars onto semantic
+   tokens so any remaining consumer themes automatically. Prefer the --color-sf-*
+   tokens for new code.
+   ---------------------------------------------------------------------------- */
+:root {
+  --primary-blue: var(--color-sf-bg-brand-solid);
+  --success-green: var(--color-sf-fg-success-primary);
+  --warning-amber: var(--color-sf-fg-warning-primary);
+  --danger-red: var(--color-sf-fg-error-primary);
+  --text-primary: var(--color-sf-fg-primary);
+  --text-secondary: var(--color-sf-fg-tertiary);
+  --surface: var(--color-sf-bg-primary);
+  --background: var(--color-sf-bg-secondary);
+}

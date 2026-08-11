@@ -1,0 +1,180 @@
+@*
+  Port of src/screens/EmployeeExperience/components/DelayConcernDialog.tsx.
+
+  Modal for raising a delay concern. Captures related-entity type/id,
+  subject, details, days waiting, expected slack, and severity.
+*@
+
+@inject IEmployeeExperienceService EmployeeExperienceService
+
+<SfDialog Width="560px"
+          IsModal="true"
+          ShowCloseIcon="true"
+          Visible="@Visible"
+          Header="Raise a delay concern"
+          CloseOnEscape="true"
+          OnOverlayClick="HandleCancel"
+          CssClass="ee-dialog">
+    <DialogTemplates>
+        <Content>
+            <div class="ee-form">
+                <div class="ee-field full">
+                    <label>Related Entity Type</label>
+                    <SfDropDownList TValue="string" TItem="EntityOption"
+                                    DataSource="@_entityTypes"
+                                    Value="@_form.RelatedEntityType"
+                                    ValueChanged="@(v => _form.RelatedEntityType = v ?? "other")">
+                        <DropDownListFieldSettings Text="Label" Value="Value" />
+                    </SfDropDownList>
+                </div>
+                <div class="ee-field">
+                    <label>Related ID (optional)</label>
+                    <SfTextBox TValue="string"
+                               Placeholder="e.g. req_123"
+                               Value="@_form.RelatedEntityId"
+                               ValueChanged="@(v => _form.RelatedEntityId = v ?? string.Empty)" />
+                </div>
+                <div class="ee-field">
+                    <label>Severity</label>
+                    <SfDropDownList TValue="string" TItem="SeverityOption"
+                                    DataSource="@_severityOptions"
+                                    Value="@_form.Severity"
+                                    ValueChanged="@(v => _form.Severity = v ?? "medium")">
+                        <DropDownListFieldSettings Text="Label" Value="Value" />
+                    </SfDropDownList>
+                </div>
+                <div class="ee-field">
+                    <label>Days Waiting *</label>
+                    <SfNumericTextBox TValue="int"
+                                       Min="0" Max="365" Step="1" Format="n0"
+                                       Value="@_form.DaysWaiting"
+                                       ValueChanged="@(v => _form.DaysWaiting = v)" />
+                </div>
+                <div class="ee-field">
+                    <label>Expected Slack (days)</label>
+                    <SfNumericTextBox TValue="int?"
+                                       Min="0" Max="365" Step="1" Format="n0"
+                                       Value="@_form.ExpectedSlackDays"
+                                       ValueChanged="@(v => _form.ExpectedSlackDays = v)" />
+                </div>
+                <div class="ee-field full">
+                    <label>Subject *</label>
+                    <SfTextBox TValue="string"
+                               Placeholder="What is being delayed?"
+                               Value="@_form.Subject"
+                               ValueChanged="@(v => _form.Subject = v ?? string.Empty)" />
+                </div>
+                <div class="ee-field full">
+                    <label>Details *</label>
+                    <SfTextArea TValue="string"
+                                Placeholder="What is the impact, who is blocked, etc."
+                                Rows="4"
+                                Value="@_form.Details"
+                                ValueChanged="@(v => _form.Details = v ?? string.Empty)" />
+                </div>
+            </div>
+            @if (_error is not null)
+            {
+                <span class="ee-field-error">@_error</span>
+            }
+        </Content>
+    </DialogTemplates>
+    <DialogButtons>
+        <DialogButton Content="Cancel" CssClass="e-secondary" OnClick="HandleCancel" />
+        <DialogButton Content="@(_submitting ? "Submitting…" : "Submit Concern")"
+                      CssClass="e-primary"
+                      IsPrimary="true"
+                      Disabled="@_submitting"
+                      OnClick="HandleSubmitAsync" />
+    </DialogButtons>
+</SfDialog>
+
+@code {
+    [Parameter, EditorRequired] public bool Visible { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+    [Parameter] public EventCallback OnSubmitted { get; set; }
+
+    private record EntityOption(string Value, string Label);
+    private record SeverityOption(string Value, string Label);
+
+    private static readonly EntityOption[] _entityTypes = new[]
+    {
+        new EntityOption("self-service", "Self-Service Request"),
+        new EntityOption("requisition", "Requisition"),
+        new EntityOption("approval", "Approval"),
+        new EntityOption("payroll", "Payroll"),
+        new EntityOption("benefits", "Benefits"),
+        new EntityOption("other", "Other"),
+    };
+
+    private static readonly SeverityOption[] _severityOptions = new[]
+    {
+        new SeverityOption("low", "Low"),
+        new SeverityOption("medium", "Medium"),
+        new SeverityOption("high", "High"),
+    };
+
+    private DelayForm _form = new();
+    private string? _error;
+    private bool _submitting;
+
+    private async Task HandleSubmitAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_form.Subject) || string.IsNullOrWhiteSpace(_form.Details))
+        {
+            _error = "Subject and details are required";
+            return;
+        }
+        if (_form.DaysWaiting < 0)
+        {
+            _error = "Days waiting must be a non-negative number";
+            return;
+        }
+        _error = null;
+        _submitting = true;
+        try
+        {
+            // Server expects the full record (related-entity type/id, days
+            // waiting, severity, etc.) — see CreateDelayConcernRequest on
+            // the backend. Empty `RelatedEntityId` collapses to null.
+            await EmployeeExperienceService.CreateDelayConcernAsync(new DelayConcernInput(
+                RelatedEntityType: _form.RelatedEntityType,
+                RelatedEntityId: string.IsNullOrWhiteSpace(_form.RelatedEntityId) ? null : _form.RelatedEntityId.Trim(),
+                Subject: _form.Subject.Trim(),
+                Details: _form.Details.Trim(),
+                DaysWaiting: _form.DaysWaiting,
+                ExpectedSlackDays: _form.ExpectedSlackDays,
+                Severity: string.IsNullOrWhiteSpace(_form.Severity) ? null : _form.Severity));
+            _form = new DelayForm();
+            await OnSubmitted.InvokeAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = "Failed to submit delay concern";
+            Console.Error.WriteLine(ex);
+        }
+        finally
+        {
+            _submitting = false;
+        }
+    }
+
+    private async Task HandleCancel()
+    {
+        if (_submitting) return;
+        _form = new DelayForm();
+        _error = null;
+        await OnClose.InvokeAsync();
+    }
+
+    private sealed class DelayForm
+    {
+        public string RelatedEntityType { get; set; } = "self-service";
+        public string RelatedEntityId { get; set; } = string.Empty;
+        public string Subject { get; set; } = string.Empty;
+        public string Details { get; set; } = string.Empty;
+        public int DaysWaiting { get; set; } = 1;
+        public int? ExpectedSlackDays { get; set; }
+        public string Severity { get; set; } = "medium";
+    }
+}

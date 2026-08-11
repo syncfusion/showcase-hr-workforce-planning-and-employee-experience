@@ -1,0 +1,135 @@
+/* QuickActionDialog — confirmation dialog for Schedule 1:1, Send
+   Recognition, Assign Training, Request Pulse Check, and the
+   generic "message" fallback.
+
+   CSS isolation notes:
+   - `.quick-action-form`, `.quick-action-field`, etc. are on
+     Blazor-rendered <input> / <textarea> / <label> elements that
+     sit INSIDE the Syncfusion <SfDialog>. The dialog itself
+     (`.e-dialog`, `.e-dlg-content`) is Syncfusion-rendered, so
+     those nodes don't get the scope attribute.
+   - Because the rule selectors here all end in our own
+     `__` classes (which are on Blazor-rendered elements), plain
+     selectors work — Blazor attaches the scope attribute to the
+     last Blazor-rendered class. No `:deep()` is needed for the
+     form/field rules below.
+   - The dialog footer buttons are wrapped in our own
+     `.quick-action-footer` (Blazor-rendered), so the descendant
+     `.e-btn` selector needs `:deep()` per the project
+     CSS-isolation convention.
+*/
+
+.quick-action-form {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 8px;
+}
+
+.quick-action-row {
+    display: flex;
+    gap: 12px;
+}
+
+.quick-action-row .quick-action-field {
+    flex: 1;
+    min-width: 0;
+}
+
+.quick-action-field {
+    display: flex;
+    flex-direction: column;
+}
+
+.quick-action-field-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--color-sf-fg-tertiary);
+    display: block;
+    margin-bottom: 6px;
+}
+
+.quick-action-input,
+.quick-action-textarea {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid var(--color-sf-border-primary);
+    border-radius: var(--input-md-radius, 6px);
+    font-size: 13px;
+    box-sizing: border-box;
+    background: var(--color-sf-bg-primary);
+    color: var(--color-sf-fg-primary);
+    font-family: inherit;
+}
+
+.quick-action-textarea {
+    resize: vertical;
+}
+
+.quick-action-message-preview {
+    font-size: 13px;
+    line-height: 1.5;
+    color: var(--color-sf-fg-primary);
+    padding: 10px 12px;
+    background: var(--color-sf-bg-secondary);
+    border: 1px solid var(--color-sf-border-secondary);
+    border-radius: 6px;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.quick-action-error {
+    font-size: 12px;
+    color: var(--color-sf-fg-error-primary, #c0392b);
+    padding: 4px 0;
+}
+
+.quick-action-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    padding-top: 12px;
+    border-top: 1px solid var(--color-sf-border-tertiary);
+}
+
+/* Syncfusion renders the dialog footer buttons; the last class in
+   this chain must be wrapped in :deep() so the scope attribute
+   doesn't get appended to a class that doesn't exist on a
+   Blazor-rendered node. */
+.quick-action-footer :deep(.e-btn) {
+    /* layout-only override — keep default button styling. */
+}
+
+/* Custom header row with a Blazor-rendered X close button.
+   The header template lives in the dialog's HeaderTemplate
+   (Blazor-rendered), so plain selectors work here. */
+.quick-action-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--color-sf-fg-primary);
+}
+
+.quick-action-close {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: transparent;
+    color: var(--color-sf-fg-tertiary);
+    cursor: pointer;
+    line-height: 1;
+    font-size: 20px;
+}
+
+.quick-action-close:hover {
+    background: var(--color-sf-bg-secondary);
+    color: var(--color-sf-fg-primary);
+}

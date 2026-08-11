@@ -1,0 +1,374 @@
+@*
+  Port of src/screens/Overview/index.tsx. Route "/".
+
+  Fetches the OverviewResponse via IOverviewService and lays out:
+    - PageHeader
+    - KpiCard × 4 (ordered: Total Headcount, Open Requisitions, Engagement, Retention)
+    - RequisitionGrid
+    - ActionPlans (with a "+ New Plan" button that opens a dialog)
+    - DetailPanel (right rail)
+    - SfDialog for the new-plan flow
+    - SfToast for the success notification
+*@
+
+@page "/"
+
+@using BlazorWebApp.Components.Models
+@using BlazorWebApp.Components.Overview
+@using BlazorWebApp.Components.Shared
+@using BlazorWebApp.Services
+@inject IOverviewService OverviewService
+@inject BreakpointService Breakpoint
+
+<PageTitle>Overview</PageTitle>
+
+<div class="overview-screen">
+    <PageHeader Title="Overview" Subtitle="Workforce health and key metrics at a glance" />
+
+    @if (_isLoading)
+    {
+        <LoadingState Variant="LoadingState.VariantKind.Spinner" Height="400px" />
+    }
+    else if (_error is not null)
+    {
+        <ErrorState Message="@_error" OnRetry="Reload" />
+    }
+    else
+    {
+        <div class="kpi-grid">
+            @foreach (var card in _kpiCards)
+            {
+                <KpiCard Title="@card.Title"
+                         Value="@card.Value"
+                         Change="@card.Change"
+                         TrendData="@card.TrendData"
+                         Context="@card.Context"
+                         Color="@card.Color"
+                         RiskThreshold="20"
+                         RiskValue="@(card.Title == "Retention Risk" ? double.TryParse(card.Value, out var v) ? v : (double?)null : null)"
+                         InvertTrend="@(card.Title == "Retention Risk")" />
+            }
+        </div>
+
+        <div class="overview-layout @(IsStacked ? "overview-layout--stack" : null)">
+            <div class="overview-main">
+                <section class="section-container">
+                    <header class="section-header">
+                        <h2 class="section-title">ACTIVE REQUISITIONS</h2>
+                    </header>
+                    <RequisitionGrid Data="@_requisitions" OnView="HandleViewRequisition" />
+                </section>
+
+                <section class="section-container">
+                    <header class="section-header">
+                        <h2 class="section-title">ACTION PLANS</h2>
+                        <div class="section-actions">
+                            <SfButton CssClass="e-small e-primary"
+                                      IconCss="e-icons e-plus"
+                                      OnClick="OpenNewPlanDialog">
+                                <span class="overview-new-plan-label"> New Plan</span>
+                            </SfButton>
+                        </div>
+                    </header>
+                    <ActionPlans Data="@_actionPlans" />
+                </section>
+            </div>
+
+            <aside class="overview-sidebar">
+                <DetailPanel Timeline="@_activityTimeline"
+                             AiInsight="@_aiInsight"
+                             GeneratingInsight="@_generatingInsight"
+                             InsightError="@_insightError"
+                             OnGenerateInsight="HandleGenerateInsight"
+                             OnDismissInsight="HandleDismissInsight"
+                             OnOpenActionPlan="OpenActionPlanDialog"
+                             OnShowToast="HandleShowToast" />
+            </aside>
+        </div>
+    }
+</div>
+
+<SfDialog Width="480px"
+          IsModal="true"
+          ShowCloseIcon="true"
+          Visible="@_showNewPlanDialog"
+          Header="New Action Plan"
+          CloseOnEscape="true"
+          OnOverlayClick="CloseNewPlanDialog"
+          CssClass="overview-new-plan-dialog">
+    <DialogTemplates>
+        <Content>
+            <div class="overview-new-plan-form">
+                <div>
+                    <label class="overview-new-plan-label-text">Title</label>
+                    <SfTextBox TValue="string"
+                               Placeholder="Enter plan title..."
+                               Value="@_newPlanTitle"
+                               CssClass="e-outline"
+                               FloatLabelType="FloatLabelType.Never"
+                               ValueChanged="@(v => _newPlanTitle = v)" />
+                </div>
+                <div>
+                    <label class="overview-new-plan-label-text">Description</label>
+                    <SfTextBox TValue="string"
+                               Placeholder="Enter a short description..."
+                               Value="@_newPlanDescription"
+                               CssClass="e-outline"
+                               Multiline="true"
+                               FloatLabelType="FloatLabelType.Never"
+                               ValueChanged="@(v => _newPlanDescription = v)" />
+                </div>
+                <div>
+                    <label class="overview-new-plan-label-text">Category</label>
+                    <SfDropDownList TValue="string" TItem="string"
+                                    DataSource="@_categories"
+                                    Value="@_newPlanCategory"
+                                    PopupHeight="180px"
+                                    CssClass="e-outline"
+                                    ValueChanged="@(v => _newPlanCategory = v ?? "Retention")">
+                        <DropDownListFieldSettings Value="Value" Text="Value" />
+                    </SfDropDownList>
+                </div>
+                <div>
+                    <label class="overview-new-plan-label-text">Status</label>
+                    <SfDropDownList TValue="string" TItem="StatusColorOption"
+                                    DataSource="@_statusColors"
+                                    Value="@_newPlanStatusColor"
+                                    PopupHeight="180px"
+                                    CssClass="e-outline"
+                                    ValueChanged="@(v => _newPlanStatusColor = v ?? "primary")">
+                        <DropDownListFieldSettings Value="Id" Text="Label" />
+                    </SfDropDownList>
+                </div>
+            </div>
+        </Content>
+    </DialogTemplates>
+    <DialogButtons>
+        <DialogButton Content="Cancel" CssClass="e-secondary" OnClick="CloseNewPlanDialog" />
+        <DialogButton Content="Save" CssClass="e-primary" IsPrimary="true" OnClick="HandleSavePlan" />
+    </DialogButtons>
+</SfDialog>
+
+<ActionPlanDialog Visible="@_showActionPlanDialog"
+                     AiInsight="@_aiInsight"
+                     OnClose="CloseActionPlanDialog" />
+
+<SfToast @ref="toast"
+         Title="Success"
+         Content="@_toastContent"
+         CssClass="e-toast-success"
+         Icon="e-success toast-icons"
+         Timeout="5000"
+         ShowCloseButton="true">
+    <ToastPosition X="Right" Y="Bottom" />
+    <ToastAnimationSettings>
+        <ToastShowAnimationSettings Effect="ToastEffect.FadeIn" Duration="300" />
+        <ToastHideAnimationSettings Effect="ToastEffect.FadeOut" Duration="300" />
+    </ToastAnimationSettings>
+</SfToast>
+
+@code {
+    private KpiCardData[] _kpiCards = Array.Empty<KpiCardData>();
+    private ActiveRequisition[] _requisitions = Array.Empty<ActiveRequisition>();
+    private ActivityTimelineEvent[] _activityTimeline = Array.Empty<ActivityTimelineEvent>();
+    // The currently-displayed AI insight. `null` means either "no
+    // insight generated yet" or "the user dismissed it" — both
+    // states render the "Generate AI Insight" CTA.
+    private AiInsight? _aiInsight;
+    // Cached fallback for when the backend returns 503 (AI disabled
+    // / not configured). Mirrors React's `cachedAiInsightRef`.
+    private AiInsight? _cachedAiInsight;
+    private bool _generatingInsight;
+    private string? _insightError;
+    private ActionPlan[] _actionPlans = Array.Empty<ActionPlan>();
+    private bool _isLoading = true;
+    private string? _error;
+
+    private bool _showNewPlanDialog;
+    // Owned by this page (not DetailPanel) so the action plan dialog
+    // lives in a different Blazor render tree from the QuickActionDialog
+    // that DetailPanel hosts. Co-locating the two <SfDialog> wrappers
+    // in the same component caused Syncfusion's renderer to leak
+    // state between them, so opening a Quick Action after closing
+    // the action plan dialog would re-show the action plan.
+    private bool _showActionPlanDialog;
+    private string _newPlanTitle = string.Empty;
+    private string _newPlanDescription = string.Empty;
+    private string _newPlanCategory = "Retention";
+    private string _newPlanStatusColor = "primary";
+    private string? _toastContent;
+
+    private SfToast? toast;
+
+    private static readonly string[] KpiCardOrder =
+        { "Total Headcount", "Open Requisitions", "Engagement Score", "Retention Risk" };
+
+    private static readonly string[] _categories =
+        { "Retention", "Recruiting", "Diversity", "Engagement", "Operations" };
+
+    public sealed record StatusColorOption(string Id, string Label);
+
+    private readonly StatusColorOption[] _statusColors = new[]
+    {
+        new StatusColorOption("primary", "Planned"),
+        new StatusColorOption("success", "On Track"),
+        new StatusColorOption("warning", "At Risk"),
+        new StatusColorOption("danger", "Blocked"),
+    };
+
+    private bool IsStacked => Breakpoint.Current is BreakpointService.Breakpoint.Xs
+                                                    or BreakpointService.Breakpoint.Sm
+                                                    or BreakpointService.Breakpoint.Md;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadDataAsync();
+    }
+
+    private async Task LoadDataAsync()
+    {
+        try
+        {
+            _isLoading = true;
+            _error = null;
+            var data = await OverviewService.GetAsync();
+            _kpiCards = data.KpiCards
+                .OrderBy(c =>
+                {
+                    var i = Array.IndexOf(KpiCardOrder, c.Title);
+                    return i < 0 ? int.MaxValue : i;
+                })
+                .ToArray();
+            _requisitions = data.Requisitions;
+            _activityTimeline = data.ActivityTimeline;
+            // Keep the seeded/initial insight around as a fallback for
+            // when the AI service is disabled (HTTP 503) or the call
+            // fails. Mirrors React's `cachedAiInsightRef`. We do NOT
+            // assign it to `_aiInsight` here — the card stays closed
+            // on first paint and only opens when the user clicks
+            // "Generate AI Insight".
+            _cachedAiInsight = data.AiInsight;
+            _aiInsight = null;
+            _actionPlans = data.ActionPlans;
+        }
+        catch (Exception ex)
+        {
+            _error = "Failed to load dashboard data";
+            // Keep the raw exception in the server log for diagnostics.
+            Console.Error.WriteLine(ex);
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task Reload() => await LoadDataAsync();
+
+    private void HandleViewRequisition(ActiveRequisition req)
+    {
+        // TODO(react): console.log('View requisition:', req.position);
+    }
+
+    /// <summary>
+    /// Calls POST /api/overview/employee/{id}/generate-insight to
+    /// regenerate the AI insight via the backend's LLM-backed
+    /// <c>InsightGenerationService</c>. On 503 (AI disabled) or any
+    /// error, falls back to the cached/seeded insight so the card
+    /// collapses back to its initial state without throwing.
+    /// </summary>
+    private async Task HandleGenerateInsight()
+    {
+        var fallback = _cachedAiInsight;
+        if (fallback is null)
+        {
+            _insightError = "No insight available.";
+            return;
+        }
+
+        _generatingInsight = true;
+        _insightError = null;
+        try
+        {
+            var generated = await OverviewService.GenerateInsightAsync(fallback.EmployeeId);
+            _aiInsight = generated ?? fallback;
+        }
+        catch (Exception ex)
+        {
+            _insightError = "Could not generate insight.";
+            _aiInsight = fallback;
+            Console.Error.WriteLine(ex);
+        }
+        finally
+        {
+            _generatingInsight = false;
+        }
+    }
+
+    /// <summary>
+    /// Clears the displayed insight so the card collapses back to the
+    /// "Generate AI Insight" CTA. Mirrors React's
+    /// <c>onDismissInsight</c>.
+    /// </summary>
+    private void HandleDismissInsight()
+    {
+        _aiInsight = null;
+        _insightError = null;
+    }
+
+    /// <summary>
+    /// Surfaces a Quick Action dialog submission through the
+    /// screen-level SfToast so clipboard, dialog, and AI
+    /// generate/dismiss all share the same feedback channel.
+    /// </summary>
+    private async Task HandleShowToast(QuickActionResult result)
+    {
+        _toastContent = result.Message;
+        if (toast is not null)
+        {
+            await toast.ShowAsync();
+        }
+    }
+
+    private void OpenNewPlanDialog()
+    {
+        _newPlanTitle = string.Empty;
+        _newPlanDescription = string.Empty;
+        _newPlanCategory = "Retention";
+        _newPlanStatusColor = "primary";
+        _showNewPlanDialog = true;
+    }
+
+    private void CloseNewPlanDialog() => _showNewPlanDialog = false;
+
+    /// <summary>
+    /// Opens the Create Action Plan dialog. Wired to the
+    /// <c>OnOpenActionPlan</c> callback on <see cref="DetailPanel"/>
+    /// so the dialog is opened from the page-level render tree and
+    /// stays isolated from the QuickActionDialog hosted inside
+    /// DetailPanel.
+    /// </summary>
+    private void OpenActionPlanDialog() => _showActionPlanDialog = true;
+    private void CloseActionPlanDialog() => _showActionPlanDialog = false;
+
+    private async Task HandleSavePlan()
+    {
+        if (string.IsNullOrWhiteSpace(_newPlanTitle)) return;
+        var statusLabel = _statusColors.FirstOrDefault(s => s.Id == _newPlanStatusColor)?.Label ?? "Planned";
+        var newPlan = new ActionPlan(
+            Id: DateTimeOffset.UtcNow.ToUnixTimeMilliseconds().ToString(),
+            Title: _newPlanTitle.Trim(),
+            Description: _newPlanDescription.Trim(),
+            Category: _newPlanCategory,
+            StatusColor: _newPlanStatusColor,
+            StatusLabel: statusLabel,
+            Progress: 0);
+        _actionPlans = new[] { newPlan }.Concat(_actionPlans).ToArray();
+        _showNewPlanDialog = false;
+        _toastContent = $"Action plan \"{newPlan.Title}\" created successfully.";
+        if (toast is not null)
+        {
+            await toast.ShowAsync();
+        }
+    }
+}

@@ -1,0 +1,17 @@
+.app-layout {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: row;
+    background: var(--color-sf-bg-secondary);
+}
+
+.main-content {
+    flex: 1;
+    min-width: 0;
+    padding: 24px;
+}
+
+
+@media (max-width: 768px) {
+    .main-content { padding: 16px; }
+}

@@ -1,0 +1,159 @@
+/* FeedbackSection — Pulse Surveys / Theme Sentiment
+   (port of src/screens/EmployeeExperience/components/FeedbackSection.tsx).
+
+   Co-located (per the Blazor scoped-CSS rule) because the parent screen's
+   stylesheet can only target its own DOM — this file's selectors are
+   auto-scoped to FeedbackSection.razor so the rules actually apply.
+
+   All rules consume design tokens from wwwroot/css/tokens.css so the
+   section stays in lock-step with the rest of the Employee Experience
+   screen and the dark/light theme toggle.
+*/
+
+.feedback-section {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-16, 16px);
+}
+
+/* ---- Section header (title + summary chips) ---- */
+.feedback-section__header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--spacing-12, 12px);
+    flex-wrap: wrap;
+}
+
+.feedback-section__header .e-chip-list,
+.feedback-section__header .e-chip {
+    flex-shrink: 0;
+}
+
+/* ---- Card chrome (rides on .ee-card from the parent page CSS) ---- */
+.feedback-survey-card,
+.feedback-chart-card,
+.feedback-themes-card {
+    background: var(--color-sf-bg-primary);
+    border: var(--border-1) solid var(--color-sf-border-secondary);
+    border-radius: var(--radius-8, 10px);
+    padding: var(--spacing-16, 16px) 18px;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.feedback-survey-card { margin-top: 0; }
+
+.feedback-survey-card:hover {
+    border-color: var(--color-sf-border-primary);
+    box-shadow: 0 6px 18px rgba(var(--color-sf-gray-900-rgb, 16, 24, 40), 0.06);
+    transform: translateY(-1px);
+}
+
+.feedback-survey-card.is-active {
+    border-color: var(--color-sf-border-brand-solid, var(--color-sf-brand-500));
+    box-shadow:
+        0 0 0 1px var(--color-sf-border-brand-solid, var(--color-sf-brand-500)),
+        0 8px 24px rgba(var(--color-sf-gray-900-rgb, 16, 24, 40), 0.08);
+}
+
+/* ---- Card head row (title + status chip) ---- */
+.feedback-survey-card__head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--spacing-12, 12px);
+    margin-bottom: var(--spacing-12, 12px);
+}
+
+.feedback-survey-card__title-block { min-width: 0; flex: 1 1 auto; }
+
+.feedback-survey-card__title {
+    font-size: var(--font-size-sm, 15px);
+    font-weight: var(--font-weight-semibold, 600);
+    line-height: 1.3;
+    color: var(--color-sf-fg-primary);
+}
+
+.feedback-survey-card__meta { margin-top: 2px; }
+
+/* ---- Response rate meter ---- */
+.feedback-rate { margin: var(--spacing-4, 4px) 0 var(--spacing-12, 12px); }
+
+.feedback-rate__track {
+    position: relative;
+    height: 6px;
+    width: 100%;
+    background: var(--color-sf-bg-tertiary);
+    border-radius: var(--radius-full, 999px);
+    overflow: hidden;
+}
+
+.feedback-rate__fill {
+    height: 100%;
+    width: 0;
+    background: var(--color-sf-brand-500, #3B82F6);
+    border-radius: inherit;
+    transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.feedback-rate__label {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-top: 6px;
+    font-size: var(--font-size-xs, 12px);
+    color: var(--color-sf-fg-primary);
+    font-weight: var(--font-weight-semibold, 600);
+}
+
+.feedback-survey-card__tags { margin-top: var(--spacing-4, 4px); }
+.feedback-survey-card__actions { margin-top: var(--spacing-14, 14px); }
+
+/* ---- Inline form (dashed divider, then fields + actions) ---- */
+.feedback-survey-form {
+    margin-top: var(--spacing-14, 14px);
+    padding-top: var(--spacing-14, 14px);
+    border-top: var(--border-1) dashed var(--color-sf-border-tertiary, var(--color-sf-border-secondary));
+}
+
+.feedback-survey-form__actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--spacing-8, 8px);
+}
+
+.feedback-chart-card__body {
+    width: 100%;
+    min-height: 280px;
+    margin-top: var(--spacing-4, 4px);
+}
+
+/* ---- Syncfusion chip tweaks ----
+   Match the rounded pill in the rest of the Employee Experience screen and
+   give the section's chips a soft tint. */
+.feedback-survey-card .e-chip,
+.feedback-section__header .e-chip,
+.feedback-themes-card .e-chip {
+    border-radius: var(--radius-full, 999px);
+    font-weight: var(--font-weight-semibold, 600);
+    font-size: 11px;
+    letter-spacing: 0.2px;
+}
+
+.feedback-section__header .e-chip.e-info {
+    background: var(--color-sf-brand-50);
+    color: var(--color-sf-brand-700);
+}
+
+.feedback-section__header .e-chip.e-outline {
+    background: var(--color-sf-gray-100);
+    color: var(--color-sf-gray-700);
+}
+
+.feedback-survey-card__tags .e-chip-list { flex-wrap: wrap; }
+
+/* ---- Reduced motion ---- */
+@media (prefers-reduced-motion: reduce) {
+    .feedback-survey-card,
+    .feedback-rate__fill { transition: none; }
+}
