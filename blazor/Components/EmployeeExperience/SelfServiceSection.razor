@@ -1,0 +1,404 @@
+@*
+  Port of src/screens/EmployeeExperience/components/SelfServiceSection.tsx.
+
+  Modern SaaS table view of the current user's self-service requests.
+
+  Layout (top → bottom):
+    1. Header row       — title/subtitle, search box, "New Request" CTA
+    2. Quick stats row   — Total / Open / In Review / Resolved
+    3. SfGrid            — premium table with subject cell, type/status/priority
+                          chips, assignee cell, and date column
+    4. SelfServiceRequestDialog — modal opened from the CTA
+    5. No-results block  — when the search filter returns zero rows
+
+  The "New Request" CTA opens SelfServiceRequestDialog, mirroring the React
+  SelfServiceRequestDialog. The dialog is responsible for its own submit
+  and asks this component to reload the table on success via OnSubmitted.
+*@
+
+@implements IAsyncDisposable
+@inject IEmployeeExperienceService EmployeeExperienceService
+
+@if (_isLoading)
+{
+    <LoadingState Variant="LoadingState.VariantKind.Spinner" Height="320px" />
+}
+else if (_error is not null)
+{
+    <ErrorState Message="@_error" OnRetry="LoadAsync" />
+}
+else if (_requests.Count == 0)
+{
+    <EmptyState Title="No self-service requests yet"
+                Description="Submit a request for address changes, benefits, payroll, equipment, or leave."
+                ActionLabel="Submit a Request"
+                OnAction="OpenDialog" />
+}
+else
+{
+    <div class="ss-shell">
+        @* ---- Header ----------------------------------------------------------- *@
+        <div class="ss-header">
+            <div class="ss-header__title">
+                <h3 class="ss-title">My Requests</h3>
+                <p class="ss-subtitle">
+                    Track the status of HR, payroll, benefits, and equipment requests you&apos;ve submitted.
+                </p>
+            </div>
+            <div class="ss-header__actions">
+                <div class="ss-search" role="search">
+                    <span class="ss-search__icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                             stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="11" cy="11" r="7"></circle>
+                            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                        </svg>
+                    </span>
+                    <SfTextBox TValue="string"
+                               Placeholder="Search requests…"
+                               FloatLabelType="Syncfusion.Blazor.Inputs.FloatLabelType.Never"
+                               ShowClearButton="true"
+                               Value="@_query"
+                               ValueChanged="@(v => _query = v ?? string.Empty)" />
+                </div>
+                <SfButton CssClass="e-primary ss-cta"
+                          IconCss="e-icons e-plus"
+                          IconPosition="IconPosition.Left"
+                          OnClick="OpenDialog">
+                    New Request
+                </SfButton>
+            </div>
+        </div>
+
+        @* ---- Quick stats ------------------------------------------------------ *@
+        <div class="ss-stats" role="list" aria-label="Request summary">
+            <div class="ss-stat" role="listitem">
+                <span class="ss-stat__label">Total</span>
+                <span class="ss-stat__value">@_stats.Total</span>
+            </div>
+            <div class="ss-stat" role="listitem">
+                <span class="ss-stat__label">Open</span>
+                <span class="ss-stat__value">@_stats.Open</span>
+            </div>
+            <div class="ss-stat" role="listitem">
+                <span class="ss-stat__label">In&nbsp;Review / In&nbsp;Progress</span>
+                <span class="ss-stat__value">@_stats.InReview</span>
+            </div>
+            <div class="ss-stat" role="listitem">
+                <span class="ss-stat__label">Resolved</span>
+                <span class="ss-stat__value">@_stats.Resolved</span>
+            </div>
+        </div>
+
+        @* ---- Table / no-results ---------------------------------------------- *@
+        @if (_filtered.Count == 0)
+        {
+            <div class="ss-no-results" role="status">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="22 12 16 12 14 15 10 15 8 12 2 12"></polyline>
+                    <path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"></path>
+                </svg>
+                <div>
+                    <strong>No requests match &ldquo;@_query&rdquo;</strong>
+                    <p>Try a different keyword or clear the search.</p>
+                </div>
+            </div>
+        }
+        else
+        {
+            <div class="ss-table-wrap" role="region" aria-label="My requests">
+                <SfGrid TValue="SelfServiceRequest"
+                        DataSource="@_filtered"
+                        CssClass="e-grid ss-grid"
+                        AllowPaging="true"
+                        AllowSorting="true"
+                        AllowFiltering="true"
+                        RowHeight="72"
+                        GridLines="GridLine.None">
+                    <GridPageSettings PageSize="10" PageSizes="@(new int[] { 5, 10, 20, 50 })" />
+                    <GridFilterSettings Type="Syncfusion.Blazor.Grids.FilterType.Menu" />
+                    <GridColumns>
+                        @* ---- Subject (icon + title + details + attachment count) ---- *@
+                        <GridColumn Field="@nameof(SelfServiceRequest.Subject)" HeaderText="Request" Width="350">
+                            <Template>
+                                @{
+                                    var r = (SelfServiceRequest)context;
+                                    var typeMeta = GetTypeMeta(r.Type);
+                                }
+                                <div class="ss-subject">
+                                    <div class="ss-subject__icon" aria-hidden="true">
+                                        @typeMeta.IconFragment
+                                    </div>
+                                    <div class="ss-subject__body">
+                                        <div class="ss-subject__title" title="@r.Subject">@r.Subject</div>
+                                        <div class="ss-subject__details" title="@r.Details">@r.Details</div>
+                                        @if (r.Attachments is { Count: > 0 })
+                                        {
+                                            <div class="ss-subject__meta">
+                                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                                     stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                                    <path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 17.93 8.8l-8.57 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"></path>
+                                                </svg>
+                                                <span>@r.Attachments.Count attachment@(r.Attachments.Count == 1 ? "" : "s")</span>
+                                            </div>
+                                        }
+                                    </div>
+                                </div>
+                            </Template>
+                        </GridColumn>
+
+                        @* ---- Type (chip) ---------------------------------------------- *@
+                        <GridColumn Field="@nameof(SelfServiceRequest.Type)" HeaderText="Type" Width="180">
+                            <Template>
+                                @{
+                                    var r = (SelfServiceRequest)context;
+                                    var typeMeta = GetTypeMeta(r.Type);
+                                }
+                                <SfChip CssClass="ss-type-chip-wrap">
+                                    <ChipItems>
+                                        <ChipItem Text="@typeMeta.Label" CssClass="ss-type-chip e-small" />
+                                    </ChipItems>
+                                </SfChip>
+                            </Template>
+                        </GridColumn>
+
+                        @* ---- Status (semantic chip + status dot) ---------------------- *@
+                        <GridColumn Field="@nameof(SelfServiceRequest.Status)" HeaderText="Status" Width="170">
+                            <Template>
+                                @{
+                                    var r = (SelfServiceRequest)context;
+                                    var status = GetStatusMeta(r.Status);
+                                }
+                                <SfChip CssClass="ss-status-chip-wrap">
+                                    <ChipItems>
+                                        <ChipItem CssClass="@($"ss-status-chip {status.CssClass} e-small")">
+                                            <Template>
+                                                <span class="ss-status-chip__dot" aria-hidden="true"></span>
+                                                <span>@status.Label</span>
+                                            </Template>
+                                        </ChipItem>
+                                    </ChipItems>
+                                </SfChip>
+                            </Template>
+                        </GridColumn>
+
+                        @* ---- Priority (semantic chip) --------------------------------- *@
+                        <GridColumn Field="@nameof(SelfServiceRequest.Priority)" HeaderText="Priority" Width="140">
+                            <Template>
+                                @{
+                                    var r = (SelfServiceRequest)context;
+                                }
+                                @if (string.IsNullOrEmpty(r.Priority))
+                                {
+                                    <span class="ss-muted">—</span>
+                                }
+                                else
+                                {
+                                    var prio = GetPriorityMeta(r.Priority!);
+                                    <SfChip CssClass="ss-priority-chip-wrap">
+                                        <ChipItems>
+                                            <ChipItem Text="@prio.Label" CssClass="@($"ss-priority-chip {prio.CssClass} e-small")" />
+                                        </ChipItems>
+                                    </SfChip>
+                                }
+                            </Template>
+                        </GridColumn>
+
+                        @* ---- Date (primary + relative secondary) ---------------------- *@
+                        <GridColumn Field="@nameof(SelfServiceRequest.CreatedAt)" HeaderText="Submitted" Width="160">
+                            <Template>
+                                @{
+                                    var r = (SelfServiceRequest)context;
+                                    var primary = FormatDate(r.CreatedAt);
+                                    var secondary = !string.IsNullOrEmpty(r.UpdatedAt) && r.UpdatedAt != r.CreatedAt
+                                        ? $"Updated {FormatRelative(r.UpdatedAt!)}"
+                                        : FormatRelative(r.CreatedAt);
+                                }
+                                <div class="ss-date">
+                                    <span class="ss-date__primary">@primary</span>
+                                    <span class="ss-date__secondary">@secondary</span>
+                                </div>
+                            </Template>
+                        </GridColumn>
+                    </GridColumns>
+                </SfGrid>
+            </div>
+        }
+    </div>
+}
+
+<SelfServiceRequestDialog Visible="@_showDialog"
+                          OnClose="CloseDialog"
+                          OnSubmitted="OnDialogSubmitted" />
+
+@code {
+    // ---- State ---------------------------------------------------------------
+    private List<SelfServiceRequest> _requests = new();
+    private List<SelfServiceRequest> _filtered = new();
+    private bool _isLoading = true;
+    private string? _error;
+    private string _query = string.Empty;
+    private bool _showDialog;
+
+    private record Stats(int Total, int Open, int InReview, int Resolved);
+    private Stats _stats = new(0, 0, 0, 0);
+
+    // ---- Lifecycle -----------------------------------------------------------
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        try
+        {
+            _isLoading = true;
+            _error = null;
+            var data = await EmployeeExperienceService.GetSelfServiceRequestsAsync();
+            _requests = data.ToList();
+            Recompute();
+        }
+        catch (Exception ex)
+        {
+            _error = "Failed to load self-service requests";
+            Console.Error.WriteLine(ex);
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    // ---- Filter + stats ------------------------------------------------------
+    private void Recompute()
+    {
+        var q = _query.Trim();
+        if (q.Length == 0)
+        {
+            _filtered = _requests.ToList();
+        }
+        else
+        {
+            _filtered = _requests.Where(r =>
+                (r.Subject ?? string.Empty).Contains(q, StringComparison.OrdinalIgnoreCase) ||
+                (r.Details ?? string.Empty).Contains(q, StringComparison.OrdinalIgnoreCase) ||
+                (r.AssignedTo ?? string.Empty).Contains(q, StringComparison.OrdinalIgnoreCase) ||
+                GetTypeMeta(r.Type).Label.Contains(q, StringComparison.OrdinalIgnoreCase)
+            ).ToList();
+        }
+
+        _stats = new Stats(
+            Total: _requests.Count,
+            Open: _requests.Count(r => r.Status != "resolved" && r.Status != "rejected"),
+            InReview: _requests.Count(r => r.Status == "in-review" || r.Status == "in-progress"),
+            Resolved: _requests.Count(r => r.Status == "resolved")
+        );
+    }
+
+    // ---- Dialog wiring -------------------------------------------------------
+    private void OpenDialog() => _showDialog = true;
+    private void CloseDialog() => _showDialog = false;
+    private async Task OnDialogSubmitted() { _showDialog = false; await LoadAsync(); }
+
+    // ---- Type metadata (icon + label) ----------------------------------------
+    private sealed record TypeMeta(string Label, RenderFragment IconFragment);
+
+    // Built lazily so the static initializer does not run before the
+    // renderer is ready (RenderFragment is renderer-bound).
+    private static readonly Dictionary<string, TypeMeta> _typeMetaMap = BuildTypeMetaMap();
+
+    private static Dictionary<string, TypeMeta> BuildTypeMetaMap()
+    {
+        return new Dictionary<string, TypeMeta>
+        {
+            ["address-change"] = new("Address Change", FileTextIcon()),
+            ["benefits"]       = new("Benefits",       FileTextIcon()),
+            ["payroll"]        = new("Payroll",        FileTextIcon()),
+            ["equipment"]      = new("Equipment",      PaperclipIcon()),
+            ["leave-request"]  = new("Leave Request",  CalendarIcon()),
+            ["other"]          = new("Other",          FileTextIcon()),
+        };
+    }
+
+    private TypeMeta GetTypeMeta(string type) =>
+        _typeMetaMap.TryGetValue(type, out var m) ? m : _typeMetaMap["other"];
+
+    // ---- Status metadata -----------------------------------------------------
+    private sealed record StatusMeta(string Label, string CssClass);
+    private static readonly Dictionary<string, StatusMeta> _statusMetaMap = new()
+    {
+        { "submitted",    new StatusMeta("Submitted",    "ss-status-submitted")    },
+        { "in-review",    new StatusMeta("In Review",    "ss-status-in-review")    },
+        { "in-progress",  new StatusMeta("In Progress",  "ss-status-in-progress")  },
+        { "resolved",     new StatusMeta("Resolved",     "ss-status-resolved")     },
+        { "rejected",     new StatusMeta("Rejected",     "ss-status-rejected")     },
+    };
+    private StatusMeta GetStatusMeta(string status) =>
+        _statusMetaMap.TryGetValue(status, out var m) ? m : new StatusMeta(status, "ss-status-submitted");
+
+    // ---- Priority metadata ---------------------------------------------------
+    private sealed record PriorityMeta(string Label, string CssClass);
+    private static readonly Dictionary<string, PriorityMeta> _priorityMetaMap = new()
+    {
+        { "low",      new PriorityMeta("Low",      "ss-priority-low")      },
+        { "medium",   new PriorityMeta("Medium",   "ss-priority-medium")   },
+        { "high",     new PriorityMeta("High",     "ss-priority-high")     },
+        { "critical", new PriorityMeta("Critical", "ss-priority-critical") },
+    };
+    private PriorityMeta GetPriorityMeta(string priority) =>
+        _priorityMetaMap.TryGetValue(priority, out var m) ? m : new PriorityMeta(priority, "ss-priority-medium");
+
+    // ---- Date helpers --------------------------------------------------------
+    private static string FormatDate(string? iso)
+    {
+        if (string.IsNullOrEmpty(iso)) return "—";
+        if (DateTimeOffset.TryParse(iso, out var dt))
+            return dt.ToLocalTime().ToString("MMM d, yyyy");
+        return iso;
+    }
+
+    private static string FormatRelative(string? iso)
+    {
+        if (string.IsNullOrEmpty(iso)) return string.Empty;
+        if (!DateTimeOffset.TryParse(iso, out var dt)) return string.Empty;
+        var days = (int)Math.Floor((DateTimeOffset.Now - dt.ToLocalTime()).TotalDays);
+        if (days <= 0) return "today";
+        if (days == 1) return "yesterday";
+        if (days < 7)  return $"{days} days ago";
+        if (days < 30) return $"{days / 7}w ago";
+        return dt.ToLocalTime().ToString("MMM d");
+    }
+
+    private static string GetInitials(string name)
+    {
+        if (string.IsNullOrWhiteSpace(name)) return "?";
+        var parts = name.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length == 0) return "?";
+        if (parts.Length == 1) return parts[0][..Math.Min(2, parts[0].Length)].ToUpperInvariant();
+        return ($"{parts[0][0]}{parts[^1][0]}").ToUpperInvariant();
+    }
+
+    // ---- Inline icon fragments (lucide-style stroke SVGs) --------------------
+    private static RenderFragment FileTextIcon() => @<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                                           stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+        <polyline points="14 2 14 8 20 8"></polyline>
+        <line x1="16" y1="13" x2="8" y2="13"></line>
+        <line x1="16" y1="17" x2="8" y2="17"></line>
+        <line x1="10" y1="9" x2="8" y2="9"></line>
+    </svg>;
+
+    private static RenderFragment PaperclipIcon() => @<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                                             stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+        <path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 17.93 8.8l-8.57 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"></path>
+    </svg>;
+
+    private static RenderFragment CalendarIcon() => @<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                                            stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+        <line x1="16" y1="2" x2="16" y2="6"></line>
+        <line x1="8" y1="2" x2="8" y2="6"></line>
+        <line x1="3" y1="10" x2="21" y2="10"></line>
+    </svg>;
+
+    public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+}

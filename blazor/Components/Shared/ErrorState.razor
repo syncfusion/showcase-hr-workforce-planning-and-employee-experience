@@ -1,0 +1,39 @@
+@*
+  Port of src/components/states/ErrorState.tsx — inline error block with
+  optional retry button.
+*@
+
+<div class="error-state" style="text-align:center; padding:48px 24px;">
+    <div style="margin-bottom:16px; color:#DC3545;">
+        <svg width="64" height="64" viewBox="0 0 24 24" fill="none"
+             stroke="currentColor" stroke-width="1.5">
+            <circle cx="12" cy="12" r="10" />
+            <line x1="12" y1="8" x2="12" y2="12" />
+            <line x1="12" y1="16" x2="12.01" y2="16" />
+        </svg>
+    </div>
+    <h3 style="margin-bottom:8px; color:#DC3545;">Something went wrong</h3>
+    <p style="margin-bottom:24px; color:#6C757D;">@Message</p>
+    @if (OnRetry.HasDelegate)
+    {
+        <button class="retry-btn" @onclick="OnRetry">Try Again</button>
+    }
+</div>
+
+<style>
+    .error-state .retry-btn {
+        padding: 10px 20px;
+        background: #3B8CDE;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 14px;
+    }
+    .error-state .retry-btn:hover { background: #2a6bb5; }
+</style>
+
+@code {
+    [Parameter, EditorRequired] public string Message { get; set; } = "";
+    [Parameter] public EventCallback OnRetry { get; set; }
+}

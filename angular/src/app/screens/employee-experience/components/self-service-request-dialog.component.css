@@ -1,0 +1,17 @@
+/* SelfServiceRequestDialog styles — mirrors the dialog-form layout used
+   by the sibling ReportIssueDialogComponent and DelayConcernDialogComponent. */
+
+:host { display: contents; }
+
+.ee-form { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.ee-form .full,
+.ee-field.full { grid-column: 1 / -1; }
+.ee-field { display: flex; flex-direction: column; gap: 4px; }
+.ee-field label { font-size: 12px; font-weight: 600; color: var(--color-sf-fg-secondary); }
+.ee-field .error { color: var(--color-sf-fg-error-primary); font-size: 11px; }
+
+.ee-success-msg {
+  color: #28A745;
+  text-align: center;
+  padding: 24px;
+}

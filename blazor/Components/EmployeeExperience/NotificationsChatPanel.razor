@@ -1,0 +1,341 @@
+@*
+  Port of src/screens/EmployeeExperience/components/NotificationsChatPanel.tsx.
+
+  Renders a two-tab (Notifications | Chat) panel used inside the
+  notifications drawer. Reports the unread count back to the parent via
+  the OnUnreadChange callback so the bell badge in the toolbar can stay
+  in sync with the panel state.
+*@
+
+@inject IEmployeeExperienceService EmployeeExperienceService
+@implements IAsyncDisposable
+
+<div class="ee-notif-chat-panel">
+    <div class="ee-notif-chat-tabs">
+        <button type="button"
+                class="ee-subsection-tab @(string.Equals(_tab, "notifications", StringComparison.Ordinal) ? "active" : "")"
+                @onclick='() => SetTab("notifications")'
+                aria-label="Notifications">
+            🔔 Notifications @if (_unreadCount > 0)
+            {
+                <span class="ee-unread-badge">@_unreadCount</span>
+            }
+        </button>
+        <button type="button"
+                class="ee-subsection-tab @(string.Equals(_tab, "chat", StringComparison.Ordinal) ? "active" : "")"
+                @onclick='() => SetTab("chat")'
+                aria-label="Chat">
+            💬 Chat
+        </button>
+    </div>
+
+    @if (string.Equals(_tab, "notifications", StringComparison.Ordinal))
+    {
+        <div class="ee-notif-chat-list">
+            @if (_notifLoading)
+            {
+                <LoadingState Variant="LoadingState.VariantKind.Spinner" Height="120px" />
+            }
+            else if (_notifError is not null)
+            {
+                <ErrorState Message="@_notifError" OnRetry="LoadNotificationsAsync" />
+            }
+            else if (_notifications.Count == 0)
+            {
+                <EmptyState Title="No notifications"
+                            Description="Status updates and mentions will appear here." />
+            }
+            else
+            {
+                <div class="ee-notif-chat-mark-all">
+                    <button type="button"
+                            class="ee-link-btn"
+                            @onclick="HandleMarkAllReadAsync"
+                            disabled="@(_unreadCount == 0)">
+                        Mark all read
+                    </button>
+                </div>
+                @foreach (var n in _notifications)
+                {
+                    <div class="ee-notif-item @(n.Read ? "" : "ee-notif-item--unread")">
+                        <div class="ee-notif-item__body">
+                            <div class="ee-notif-item__title">@TypeIcon(n.Type) @n.Title</div>
+                            @if (!string.IsNullOrEmpty(n.Body))
+                            {
+                                <div class="ee-notif-item__text">@n.Body</div>
+                            }
+                            <div class="ee-muted ee-notif-item__meta">
+                                @NotificationTypeLabel(n.Type) • @FormatDateTime(n.CreatedAt)
+                            </div>
+                        </div>
+                        @if (!n.Read)
+                        {
+                            <button type="button"
+                                    class="ee-link-btn"
+                                    @onclick="() => HandleMarkReadAsync(n.Id)">
+                                Mark read
+                            </button>
+                        }
+                    </div>
+                }
+            }
+        </div>
+    }
+    else
+    {
+        <div class="ee-notif-chat-list">
+            @if (_chatLoading)
+            {
+                <LoadingState Variant="LoadingState.VariantKind.Spinner" Height="120px" />
+            }
+            else if (_chatError is not null)
+            {
+                <ErrorState Message="@_chatError" OnRetry="LoadChatAsync" />
+            }
+            else if (_threads.Count == 0)
+            {
+                <EmptyState Title="No conversations"
+                            Description="Start a thread related to a request or issue." />
+            }
+            else
+            {
+                <div class="ee-chat-threads">
+                    @foreach (var t in _threads)
+                    {
+                        <button type="button"
+                                class="ee-subsection-tab @(string.Equals(t.ThreadId, _activeThreadId, StringComparison.Ordinal) ? "active" : "")"
+                                @onclick="() => SetActiveThread(t.ThreadId)"
+                                title="@t.ThreadId">
+                            @t.ThreadId.Replace("thread_", "")
+                        </button>
+                    }
+                </div>
+
+                <div class="ee-chat-messages">
+                    @{
+                        var active = _threads.FirstOrDefault(t => string.Equals(t.ThreadId, _activeThreadId, StringComparison.Ordinal));
+                    }
+                    @if (active is null || active.Messages.Count == 0)
+                    {
+                        <div class="ee-muted ee-chat-empty">No messages in this thread yet.</div>
+                    }
+                    else
+                    {
+                        @foreach (var m in active.Messages)
+                        {
+                            var isMine = string.Equals(m.FromId, CurrentUserId, StringComparison.Ordinal);
+                            <div class="ee-chat-msg @(isMine ? "ee-chat-msg--mine" : "")">
+                                <div class="ee-chat-bubble">@m.Body</div>
+                                <div class="ee-muted ee-chat-meta">
+                                    @m.FromName • @FormatTime(m.SentAt)
+                                </div>
+                            </div>
+                        }
+                    }
+                </div>
+
+                <form class="ee-chat-input-row" @onsubmit="HandleSendAsync" @onsubmit:preventDefault>
+                    <SfTextBox TValue="string"
+                               Placeholder="@(_activeThreadId is null ? "Select a thread" : "Type a message…")"
+                               Value="@_draft"
+                               ValueChanged="@(v => _draft = v ?? string.Empty)"
+                               CssClass="ee-chat-input" />
+                    <SfButton CssClass="e-primary"
+                              Type="Submit"
+                              Disabled="@(_sending || _activeThreadId is null || string.IsNullOrWhiteSpace(_draft))">
+                        @(_sending ? "…" : "Send")
+                    </SfButton>
+                </form>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public EventCallback<int> OnUnreadChange { get; set; }
+
+    // The showcase uses the current user's employee id as the canonical
+    // self-chat thread id. This matches the React service's CURRENT_USER.
+    private const string CurrentUserId = "emp_4521";
+    private static readonly string DefaultThreadId = $"thread_{CurrentUserId}";
+
+    private string _tab = "notifications";
+
+    // Notifications state
+    private List<NotificationItem> _notifications = new();
+    private bool _notifLoading = true;
+    private string? _notifError;
+    private int _unreadCount;
+
+    // Chat state
+    private List<ThreadGroup> _threads = new();
+    private bool _chatLoading = true;
+    private string? _chatError;
+    private string? _activeThreadId;
+    private string _draft = string.Empty;
+    private bool _sending;
+
+    private record ThreadGroup(string ThreadId, List<ChatMessage> Messages);
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Fire both loads in parallel — the panel is the first thing the user
+        // sees when they tap the bell and we want both tabs ready.
+        await Task.WhenAll(LoadNotificationsAsync(), LoadChatAsync());
+    }
+
+    public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+
+    private void SetTab(string tab) => _tab = tab;
+
+    private void SetActiveThread(string threadId) => _activeThreadId = threadId;
+
+    private async Task LoadNotificationsAsync()
+    {
+        try
+        {
+            _notifError = null;
+            var data = await EmployeeExperienceService.GetNotificationsAsync();
+            _notifications = data.ToList();
+            UpdateUnreadCount();
+        }
+        catch (Exception ex)
+        {
+            _notifError = "Failed to load notifications";
+            Console.Error.WriteLine(ex);
+        }
+        finally
+        {
+            _notifLoading = false;
+        }
+    }
+
+    private async Task LoadChatAsync()
+    {
+        try
+        {
+            _chatError = null;
+            var messages = await EmployeeExperienceService.GetChatMessagesAsync(DefaultThreadId);
+
+            // Group by thread id so the thread list always reflects every
+            // thread the current user participates in. The default self-thread
+            // is always present even if it has no messages yet.
+            var byThread = messages
+                .GroupBy(m => m.ThreadId)
+                .Select(g => new ThreadGroup(g.Key, g.OrderBy(m => m.SentAt).ToList()))
+                .ToList();
+
+            if (!byThread.Any(t => string.Equals(t.ThreadId, DefaultThreadId, StringComparison.Ordinal)))
+            {
+                byThread.Insert(0, new ThreadGroup(DefaultThreadId, new List<ChatMessage>()));
+            }
+
+            _threads = byThread;
+            if (_activeThreadId is null && _threads.Count > 0)
+            {
+                _activeThreadId = _threads[0].ThreadId;
+            }
+        }
+        catch (Exception ex)
+        {
+            _chatError = "Failed to load messages";
+            Console.Error.WriteLine(ex);
+        }
+        finally
+        {
+            _chatLoading = false;
+        }
+    }
+
+    private void UpdateUnreadCount()
+    {
+        _unreadCount = _notifications.Count(n => !n.Read);
+        // Fire-and-forget: callers re-render synchronously off the value.
+        _ = OnUnreadChange.InvokeAsync(_unreadCount);
+    }
+
+    private async Task HandleMarkReadAsync(string id)
+    {
+        try
+        {
+            await EmployeeExperienceService.MarkNotificationReadAsync(id);
+            var idx = _notifications.FindIndex(n => string.Equals(n.Id, id, StringComparison.Ordinal));
+            if (idx >= 0)
+            {
+                _notifications[idx] = _notifications[idx] with { Read = true };
+                UpdateUnreadCount();
+            }
+        }
+        catch (Exception ex)
+        {
+            _notifError = "Failed to mark notification as read";
+            Console.Error.WriteLine(ex);
+        }
+    }
+
+    private async Task HandleMarkAllReadAsync()
+    {
+        try
+        {
+            await EmployeeExperienceService.MarkAllNotificationsReadAsync();
+            _notifications = _notifications.Select(n => n with { Read = true }).ToList();
+            UpdateUnreadCount();
+        }
+        catch (Exception ex)
+        {
+            _notifError = "Failed to mark all notifications as read";
+            Console.Error.WriteLine(ex);
+        }
+    }
+
+    private async Task HandleSendAsync()
+    {
+        if (_sending || _activeThreadId is null || string.IsNullOrWhiteSpace(_draft)) return;
+        _sending = true;
+        try
+        {
+            var msg = await EmployeeExperienceService.SendChatMessageAsync(_activeThreadId, _draft.Trim());
+            _draft = string.Empty;
+            await LoadChatAsync();
+        }
+        catch (Exception ex)
+        {
+            _chatError = "Failed to send message";
+            Console.Error.WriteLine(ex);
+        }
+        finally
+        {
+            _sending = false;
+        }
+    }
+
+    private static string TypeIcon(string type) => type switch
+    {
+        "chat" => "💬",
+        "system" => "⚙️",
+        "mention" => "📣",
+        "status-update" => "🔄",
+        _ => "🔔",
+    };
+
+    private static string NotificationTypeLabel(string type) => type switch
+    {
+        "chat" => "Chat",
+        "system" => "System",
+        "mention" => "Mention",
+        "status-update" => "Status Update",
+        _ => type,
+    };
+
+    private static string FormatDateTime(string iso)
+    {
+        if (DateTimeOffset.TryParse(iso, out var dt)) return dt.ToLocalTime().ToString("MMM d, yyyy h:mm tt");
+        return iso;
+    }
+
+    private static string FormatTime(string iso)
+    {
+        if (DateTimeOffset.TryParse(iso, out var dt)) return dt.ToLocalTime().ToString("h:mm tt");
+        return iso;
+    }
+}

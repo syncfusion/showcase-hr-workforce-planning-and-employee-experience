@@ -1,0 +1,206 @@
+@if (isLoading()) {
+  <app-loading-state height="320px"></app-loading-state>
+} @else if (error()) {
+  <app-error-state
+    [message]="error()!"
+    [onRetry]="retryFn"
+    (retry)="retry()"
+  ></app-error-state>
+} @else if (requests().length === 0 && !showForm()) {
+  <app-empty-state
+    title="No self-service requests yet"
+    description="Submit a request for address changes, benefits, payroll, equipment, or leave."
+    actionLabel="Submit a Request"
+    [onAction]="openFormFn"
+    (action)="toggleForm()"
+  ></app-empty-state>
+} @else {
+  <div class="ss-shell">
+    <!-- Hero / heading row -->
+    <div class="ss-header">
+      <div class="ss-header__title">
+        <h3 class="ss-title">My Requests</h3>
+        <p class="ss-subtitle">
+          Track the status of HR, payroll, benefits, and equipment requests you've submitted.
+        </p>
+      </div>
+      <div class="ss-header__actions">
+        <div class="ss-search">
+          <span
+            class="ss-search__icon"
+            aria-hidden="true"
+            [innerHTML]="searchIcon"
+          ></span>
+          <ejs-textbox
+            id="ss-search"
+            placeholder="Search requests…"
+            [value]="query()"
+            (input)="onSearchInput($any($event).value)"
+            floatLabelType="Never"
+            [showClearButton]="true"
+          ></ejs-textbox>
+        </div>
+        <button
+          type="button"
+          class="e-btn e-primary ss-cta"
+          (click)="toggleForm()"
+        >
+          <span class="ss-cta__icon" aria-hidden="true">＋</span>
+          New Request
+        </button>
+      </div>
+    </div>
+
+    <!-- Quick stats row -->
+    <div class="ss-stats" role="list">
+      <div class="ss-stat e-card" role="listitem">
+        <span class="ss-stat__label">Total</span>
+        <span class="ss-stat__value">{{ stats().total }}</span>
+      </div>
+      <div class="ss-stat e-card" role="listitem">
+        <span class="ss-stat__label">Open</span>
+        <span class="ss-stat__value">{{ stats().open }}</span>
+      </div>
+      <div class="ss-stat e-card" role="listitem">
+        <span class="ss-stat__label">In&nbsp;Review / In&nbsp;Progress</span>
+        <span class="ss-stat__value">{{ stats().inReview }}</span>
+      </div>
+      <div class="ss-stat e-card" role="listitem">
+        <span class="ss-stat__label">Resolved</span>
+        <span class="ss-stat__value">{{ stats().resolved }}</span>
+      </div>
+    </div>
+
+    <!-- New-request modal (Syncfusion Dialog) — mirrors
+         src/screens/EmployeeExperience/components/SelfServiceRequestDialog.tsx -->
+    <app-self-service-request-dialog
+      [isOpen]="showForm()"
+      (isOpenChange)="closeForm()"
+      (closed)="closeForm()"
+      (submitted)="onRequestSubmitted()"
+    ></app-self-service-request-dialog>
+
+    <!-- No results state for an active filter -->
+    @if (filtered().length === 0) {
+      <div class="ss-no-results e-card">
+        <span class="ss-no-results__icon" aria-hidden="true">📭</span>
+        <div>
+          <strong>No requests match "{{ query() }}"</strong>
+          <p>Try a different keyword or clear the search.</p>
+        </div>
+      </div>
+    } @else {
+      <!-- Premium Syncfusion Grid -->
+      <div class="ss-table-wrap" role="region" aria-label="My requests">
+        <ejs-grid
+          [dataSource]="filtered()"
+          cssClass="ss-grid"
+          [allowPaging]="true"
+          [allowSorting]="true"
+          [allowFiltering]="true"
+          [filterSettings]="{ type: 'Menu' }"
+          [pageSettings]="{ pageSize: 10, pageSizes: [5, 10, 20, 50] }"
+          [rowHeight]="72"
+          gridLines="None"
+        >
+          <e-columns>
+            <e-column
+              field="subject"
+              headerText="Request"
+              width="350"
+              [template]="subjectCell"
+            ></e-column>
+            <e-column
+              field="type"
+              headerText="Type"
+              width="200"
+              [template]="typeCell"
+            ></e-column>
+            <e-column
+              field="status"
+              headerText="Status"
+              width="170"
+              [template]="statusCell"
+            ></e-column>
+            <e-column
+              field="priority"
+              headerText="Priority"
+              width="140"
+              [template]="priorityCell"
+            ></e-column>
+            <e-column
+              field="createdAt"
+              headerText="Submitted"
+              width="160"
+              textAlign="Right"
+              [template]="dateCell"
+            ></e-column>
+          </e-columns>
+
+          <ng-template #subjectCell let-data>
+            <div class="ss-subject">
+              <div class="ss-subject__icon" aria-hidden="true" [innerHTML]="typeIcon(data.type)"></div>
+              <div class="ss-subject__body">
+                <div class="ss-subject__title" [title]="data.subject">{{ data.subject }}</div>
+                <div class="ss-subject__details" [title]="data.details">{{ data.details }}</div>
+                @if (data.attachments && data.attachments.length > 0) {
+                  <div class="ss-subject__meta">
+                    <span aria-hidden="true">📎</span>
+                    <span>{{ data.attachments.length }} attachment{{ data.attachments.length > 1 ? 's' : '' }}</span>
+                  </div>
+                }
+              </div>
+            </div>
+          </ng-template>
+
+          <ng-template #typeCell let-data>
+            <ejs-chiplist cssClass="ss-type-chip">
+              <e-chips>
+                <e-chip [text]="typeLabel(data.type)"></e-chip>
+              </e-chips>
+            </ejs-chiplist>
+          </ng-template>
+
+          <ng-template #statusCell let-data>
+            <ejs-chiplist cssClass="ss-status-chip">
+              <e-chips>
+                <e-chip
+                  [text]="statusLabel(data.status)"
+                  [cssClass]="statusChipClass(data.status)"
+                ></e-chip>
+              </e-chips>
+            </ejs-chiplist>
+          </ng-template>
+
+          <ng-template #priorityCell let-data>
+            @if (data.priority) {
+              <ejs-chiplist cssClass="ss-priority-chip">
+                <e-chips>
+                  <e-chip
+                    [text]="priorityLabel(data.priority)"
+                    [cssClass]="priorityChipClass(data.priority)"
+                  ></e-chip>
+                </e-chips>
+              </ejs-chiplist>
+            } @else {
+              <span class="ss-muted">—</span>
+            }
+          </ng-template>
+
+          <ng-template #dateCell let-data>
+            <div class="ss-date">
+              <span class="ss-date__primary">{{ formatDate(data.createdAt) }}</span>
+              <span class="ss-date__secondary">
+                @if (hasUpdate(data)) {
+                  Updated {{ formatRelative(data.updatedAt) }}
+                } @else {
+                  {{ formatRelative(data.createdAt) }}
+                }
+              </span>
+            </div>
+          </ng-template>
+        </ejs-grid>
+      </div>
+    }
+  </div>
+}

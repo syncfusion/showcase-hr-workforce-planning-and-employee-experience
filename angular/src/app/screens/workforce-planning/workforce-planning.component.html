@@ -1,0 +1,251 @@
+<div class="workforce-planning-screen">
+  @if (isLoading()) {
+    <app-loading-state height="400px" />
+  } @else if (error(); as err) {
+    <app-error-state [message]="err" (retry)="refresh()" />
+  } @else if (plans().length === 0) {
+    <app-empty-state
+      title="No workforce planning data yet"
+      description="Create or import a workforce plan to compare scenarios and track staffing gaps."
+      actionLabel="Create Plan"
+      [onAction]="noop"
+    />
+  } @else {
+    <app-page-header
+      title="Workforce Planning"
+      [subtitle]="headerSubtitle"
+    />
+
+    <!-- ============ Summary stat cards ============ -->
+    <div class="summary-grid wp-stat-cards" aria-label="Workforce planning summary">
+      <!-- Plan card -->
+      <div class="e-card wp-stat-card-accent">
+        <div class="wp-stat-header">
+          <span class="wp-stat-label">Plan</span>
+          @if (planStatus(); as status) {
+            <ejs-chiplist>
+              <e-chips>
+                <e-chip [text]="status" [cssClass]="statusChipClass(status)"></e-chip>
+              </e-chips>
+            </ejs-chiplist>
+          }
+        </div>
+        <div class="wp-stat-body">
+          <span class="wp-stat-value">{{ planName() }}</span>
+          <span class="wp-stat-subtext">{{ planSnapshotLabel() }}</span>
+        </div>
+      </div>
+
+      <!-- Plan period card -->
+      <div class="e-card wp-period-card">
+        <div class="wp-stat-header">
+          <span class="wp-stat-label">Period</span>
+          @if (planDurationLabel()) {
+            <ejs-chiplist class="wp-period-badge" cssClass="e-success">
+              <e-chips>
+                <e-chip [text]="planDurationLabel()"></e-chip>
+              </e-chips>
+            </ejs-chiplist>
+          }
+        </div>
+        <div class="wp-stat-body">
+          <div class="wp-period-timeline">
+            <div class="wp-timeline-track">
+              <div class="wp-timeline-progress"></div>
+            </div>
+            <div class="wp-timeline-labels">
+              <div class="wp-timeline-point">
+                <span class="wp-timeline-date">{{ formatPlanPeriodStart() }}</span>
+                <span class="wp-timeline-tag">Start</span>
+              </div>
+              <div class="wp-timeline-point wp-timeline-end">
+                <span class="wp-timeline-date">{{ formatPlanPeriodEnd() }}</span>
+                <span class="wp-timeline-tag">End</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Scenario card -->
+      <div class="e-card wp-stat-card-accent">
+        <div class="wp-stat-header">
+          <span class="wp-stat-label">Selected Scenario</span>
+          @if (scenarioConfidence(); as confidence) {
+            <ejs-chiplist>
+              <e-chips>
+                <e-chip
+                  [text]="confidenceLabel(confidence)"
+                  [cssClass]="confidenceChipClass(confidence)"
+                ></e-chip>
+              </e-chips>
+            </ejs-chiplist>
+          }
+        </div>
+        <div class="wp-stat-body">
+          <span class="wp-stat-value">{{ scenarioName() }}</span>
+          @if (showScenarioMeta()) {
+            <div class="wp-scenario-meta">
+              @if (scenarioHeadcount() !== undefined) {
+                <span><strong>{{ scenarioHeadcount()!.toLocaleString() }}</strong> FTE</span>
+              }
+              @if (selectedScenario()?.budgetImpact !== undefined) {
+                <span><strong>${{ scenarioBudgetMillions() }}M</strong> Budget</span>
+              }
+            </div>
+          }
+        </div>
+      </div>
+
+      <!-- Snapshot card -->
+      <div class="e-card wp-stat-card-accent">
+        <div class="wp-stat-header">
+          <span class="wp-stat-label">Snapshots Captured</span>
+        </div>
+        <div class="wp-stat-body">
+          <span class="wp-stat-value wp-stat-number">{{ snapshotsCount() }}</span>
+          @if (latestSnapshotLabel(); as latest) {
+            <span class="wp-stat-subtext">Latest: {{ latest }}</span>
+          }
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ Staffing Breakdown ============ -->
+    <section class="wp-card section-container">
+      <div class="wp-section-header">
+        <h2 class="wp-section-title">Staffing Breakdown</h2>
+        <div class="wp-section-actions">
+          <ejs-dropdownlist
+            id="scenario-picker"
+            [dataSource]="scenarioOptions()"
+            [fields]="scenarioFields"
+            [value]="selectedScenarioId()"
+            (change)="onScenarioChange($event)"
+          ></ejs-dropdownlist>
+        </div>
+      </div>
+
+      @if (chartData().length > 0) {
+        <ejs-chart
+          id="staffing-breakdown-chart"
+          [height]="chartHeight"
+          [primaryXAxis]="primaryXAxis"
+          [primaryYAxis]="primaryYAxis"
+          [legendSettings]="legendSettings"
+          [tooltip]="tooltipSettings"
+        >
+          <e-series-collection>
+            <e-series
+              [dataSource]="chartData()"
+              xName="functionName"
+              yName="current"
+              name="Current"
+              type="Bar"
+              fill="var(--color-sf-brand-600)"
+              [marker]="{ dataLabel: { visible: true, position: 'Top' } }"
+            ></e-series>
+            <e-series
+              [dataSource]="chartData()"
+              xName="functionName"
+              yName="planned"
+              name="Planned"
+              type="Bar"
+              fill="var(--color-sf-success-600)"
+              [marker]="{ dataLabel: { visible: true, position: 'Top' } }"
+            ></e-series>
+            <e-series
+              [dataSource]="chartData()"
+              xName="functionName"
+              yName="open"
+              name="Open Roles"
+              type="Bar"
+              fill="var(--color-sf-warning-500)"
+              [marker]="{ dataLabel: { visible: true, position: 'Top' } }"
+            ></e-series>
+          </e-series-collection>
+        </ejs-chart>
+      } @else {
+        <app-empty-state
+          title="No staffing data"
+          description="Select a scenario to view staffing breakdown."
+          actionLabel="Refresh"
+          [onAction]="noop"
+        />
+      }
+    </section>
+
+    <!-- ============ Scenario Comparison ============ -->
+    <section class="wp-card wp-comparison-panel">
+      <div class="wp-section-header">
+        <h2 class="wp-section-title">Scenario Comparison</h2>
+      </div>
+      <p class="wp-comparison-subtitle">
+        Variance of <strong>{{ selectedScenario()?.name }}</strong> against the baseline scenario
+        <strong>{{ baselineScenario()?.name }}</strong>.
+      </p>
+
+      <div class="wp-variance-grid">
+        <div class="wp-variance-card">
+          <div class="wp-variance-label">Headcount Variance</div>
+          <div
+            class="wp-variance-value"
+            [class]="varianceTrendClass(selectedTotals().headcount, baselineTotals().headcount)"
+          >
+            {{ formatVarianceHeadcount() }}
+          </div>
+          <div class="wp-variance-meta">
+            <span>
+              Baseline
+              <strong>{{ formatValue(baselineTotals().headcount) }} FTE</strong>
+            </span>
+            <span>
+              Selected
+              <strong>{{ formatValue(selectedTotals().headcount) }} FTE</strong>
+            </span>
+          </div>
+        </div>
+
+        <div class="wp-variance-card">
+          <div class="wp-variance-label">Budget Variance</div>
+          <div
+            class="wp-variance-value"
+            [class]="varianceTrendClass(selectedTotals().budget, baselineTotals().budget)"
+          >
+            {{ formatVarianceBudget() }}
+          </div>
+          <div class="wp-variance-meta">
+            <span>
+              Baseline
+              <strong>${{ formatBudgetMillions(baselineTotals().budget) }}M</strong>
+            </span>
+            <span>
+              Selected
+              <strong>${{ formatBudgetMillions(selectedTotals().budget) }}M</strong>
+            </span>
+          </div>
+        </div>
+
+        <div class="wp-variance-card">
+          <div class="wp-variance-label">Hiring Variance</div>
+          <div
+            class="wp-variance-value"
+            [class]="varianceTrendClass(selectedTotals().hiring, baselineTotals().hiring)"
+          >
+            {{ formatVarianceHiring() }}
+          </div>
+          <div class="wp-variance-meta">
+            <span>
+              Baseline
+              <strong>{{ formatValue(baselineTotals().hiring) }} requisitions</strong>
+            </span>
+            <span>
+              Selected
+              <strong>{{ formatValue(selectedTotals().hiring) }} requisitions</strong>
+            </span>
+          </div>
+        </div>
+      </div>
+    </section>
+  }
+</div>

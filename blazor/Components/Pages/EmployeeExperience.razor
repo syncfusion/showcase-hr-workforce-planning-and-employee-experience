@@ -1,0 +1,395 @@
+@*
+  Port of src/screens/EmployeeExperience/EmployeeExperience.tsx. Route "/experience".
+
+  Layout (top → bottom):
+    1. PageHeader
+    2. Tabs row (SfTab with 6 sub-sections + notification bell on the right)
+    3. Section content area (selected sub-section)
+    4. Notifications drawer (slide-in from right, with backdrop)
+    5. SfDialog (report issue + delay concern) at the bottom
+
+  Syncfusion mapping (React → Blazor):
+    - ButtonComponent (cssClass="e-primary") → <SfButton CssClass="e-primary">
+    - TabComponent + TabItemsDirective/TabItemDirective
+        → <SfTab> + <TabItems> + <TabItem Header=...>
+    - DialogComponent → <SfDialog>
+
+  This file owns the URL-hash based sub-section navigation. The Kanban
+  triage board is no longer in the right rail — it lives inside the last
+  tab (My Board) so the layout reads as a single column on every screen
+  size. The notification bell is the LAST item in the Syncfusion
+  `SfTab` itself (matching the React port, where the bell is a sibling
+  of the `TabItemDirective` items inside `TabItemsDirective`). It is
+  rendered via a `HeaderTemplate` so the chip styling fully owns the
+  shape.
+
+  Side effects:
+    - Bumps the window hash on tab change so deep links work
+    - Polls notifications every 5s (mirrors React setInterval)
+*@
+
+@page "/experience"
+@using BlazorWebApp.Components.Models
+@using BlazorWebApp.Components.Shared
+@using BlazorWebApp.Services
+@using BlazorWebApp.Components.EmployeeExperience
+@inject IEmployeeExperienceService EmployeeExperienceService
+@inject NavigationManager Nav
+@implements IAsyncDisposable
+
+<PageTitle>Employee Experience</PageTitle>
+
+<div class="employee-experience-screen">
+    <PageHeader Title="Employee Experience"
+                Subtitle="Self-service, feedback, recognition, career, and learning — with issue reporting and triage" />
+
+    @*
+      Modern horizontal tab bar + notification bell — bell is the LAST
+      item in the Syncfusion `SfTab` (matching the React port where the
+      bell is a sibling of the tab-header items inside `TabItemsDirective`).
+
+      The Syncfusion `TabHeader.IconCss` parameter renders an icon <span>
+      to the left of the text (default IconPosition="Left") without any
+      HTML-encoding round-trip. We pair each section with a per-section
+      CSS class (`.ee-tab-icon-<id>`) that paints a Lucide-style SVG via
+      `mask-image` on `background`, so the icon is themeable (it picks up
+      `currentColor` from the Syncfusion tab shell) and identical to the
+      React/Angular inline-SVG version. See EmployeeExperience.razor.css
+      for the SVG masks.
+
+      The bell is appended as a final `<TabItem>` whose `HeaderTemplate`
+      paints the chip directly (plain <button> with inline Lucide SVG —
+      not <SfButton>, because SfButton injects its own padding/typography
+      that would force the icon to render larger than 18px). The chip
+      is pushed to the right via CSS (`margin-left: auto`) on the
+      last `.e-toolbar-item`. Its `ContentTemplate` is empty because the
+      bell is not a navigable section.
+    *@
+    <div class="ee-tabs-row" role="toolbar" aria-label="Employee experience sections">
+        <SfTab SelectedItem="@_activeSectionIndex"
+               CssClass="ee-modern-tabs">
+            <TabEvents Selected="OnTabSelected" />
+            <TabItems>
+                @foreach (var section in SubSections)
+                {
+                    <TabItem>
+                        <ChildContent>
+                            <TabHeader Text="@section.Label"
+                                       IconCss="@GetIconCssClass(section.Id)" />
+                        </ChildContent>
+                        <ContentTemplate>
+                            @switch (section.Id)
+                            {
+                                case "self-service":
+                                    <SelfServiceSection />
+                                    break;
+                                case "feedback":
+                                    <FeedbackSection />
+                                    break;
+                                case "recognition":
+                                    <RecognitionSection />
+                                    break;
+                                case "career":
+                                    <CareerSection />
+                                    break;
+                                case "learning":
+                                    <LearningSection />
+                                    break;
+                                case "my-board":
+                                    <MyBoardSection OnReportIssue="OpenReportIssue"
+                                                    OnDelayConcern="OpenDelayConcern" />
+                                    break;
+                            }
+                        </ContentTemplate>
+                    </TabItem>
+                }
+                @*
+                  Notification bell — final item in the tab bar. The
+                  `TabItem` has a `HeaderTemplate` RenderFragment (a
+                  direct property of `TabItem`, NOT a child of
+                  `TabHeader`) that paints the chip directly. We do NOT
+                  bind a `TabHeader` here because the bell is not a
+                  navigable section — it just opens the notifications
+                  drawer. Empty `ContentTemplate` so Syncfusion doesn't
+                  try to mount a section.
+                *@
+                <TabItem CssClass="ee-bell-item" Content="">
+                    <HeaderTemplate>
+                        <button id="ee-notifications-btn"
+                                type="button"
+                                class="ee-bell"
+                                @onclick="OpenNotifications"
+                                aria-label="@BellAriaLabel"
+                                title="Open notifications">
+                            <span class="ee-bell__icon" aria-hidden="true">
+                                <svg xmlns="http://www.w3.org/2000/svg"
+                                     width="18"
+                                     height="18"
+                                     viewBox="0 0 24 24"
+                                     fill="none"
+                                     stroke="currentColor"
+                                     stroke-width="1.75"
+                                     stroke-linecap="round"
+                                     stroke-linejoin="round">
+                                    <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
+                                    <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
+                                </svg>
+                            </span>
+                            @if (_unreadCount > 0)
+                            {
+                                <span class="ee-bell__count" role="status" aria-live="polite">
+                                    @(_unreadCount > 99 ? "99+" : _unreadCount.ToString())
+                                </span>
+                            }
+                        </button>
+                    </HeaderTemplate>
+                    <ContentTemplate>
+                        @* Bell is not a navigable section. *@
+                    </ContentTemplate>
+                </TabItem>
+            </TabItems>
+        </SfTab>
+    </div>
+
+    <section class="ee-subsection-content" aria-live="polite" hidden></section>
+
+    <ReportIssueDialog Visible="@_isReportIssueOpen"
+                       OnClose="CloseReportIssue"
+                       OnSubmitted="OnReportIssueSubmitted" />
+
+    <DelayConcernDialog Visible="@_isDelayConcernOpen"
+                        OnClose="CloseDelayConcern"
+                        OnSubmitted="OnDelayConcernSubmitted" />
+</div>
+
+@if (_isNotificationsOpen)
+{
+    <div class="ee-drawer-backdrop"
+         role="presentation"
+         aria-hidden="true"
+         @onclick="CloseNotifications"></div>
+    <div class="ee-drawer"
+         role="dialog"
+         aria-modal="true"
+         aria-label="Notifications and chat">
+        <div class="ee-drawer-header">
+            <h3 class="ee-section-title">Notifications</h3>
+            <button type="button"
+                    class="ee-close-btn"
+                    @onclick="CloseNotifications"
+                    aria-label="Close notifications">
+                ×
+            </button>
+        </div>
+        <div class="ee-drawer-body">
+            <NotificationsChatPanel OnUnreadChange="HandleUnreadChange" />
+        </div>
+    </div>
+}
+
+@code {
+    // ===== Sub-section metadata (mirrors src/screens/EmployeeExperience/employeeExperienceConfig.ts) =====
+    // "my-board" replaces the old right-rail Triage Board tab. It is the
+    // last entry so the kanban lives at the end of the screen.
+    private record SubSection(string Id, string Label);
+
+    private static readonly SubSection[] SubSections = new[]
+    {
+        new SubSection("self-service", "Self-Service"),
+        new SubSection("feedback", "Feedback"),
+        new SubSection("recognition", "Recognition"),
+        new SubSection("career", "Career"),
+        new SubSection("learning", "Learning"),
+        new SubSection("my-board", "My Board"),
+    };
+
+    // ===== Per-section tab icon CSS class =====
+    // Syncfusion's TabHeader.IconCss renders a <span class="e-icons
+    // e-tab-icon [this class]"> to the left of the header text. We
+    // supply a per-section class (`.ee-tab-icon-<id>`) defined in
+    // EmployeeExperience.razor.css that paints a Lucide-style SVG
+    // via `mask-image: url("data:image/svg+xml;...")`. This is the
+    // supported, HTML-encoding-free way to attach an icon to a
+    // Syncfusion Blazor TabHeader — earlier attempts to inject raw
+    // SVG via TabHeader.Text failed because Blazor HTML-encodes
+    // the bound string, so the markup showed up as literal text.
+    // The SVG path data is byte-for-byte identical to the Lucide
+    // icons used by the React and Angular screens.
+    private const string IconCssBase = "ee-tab-icon";
+
+    private static string GetIconCssClass(string id) =>
+        string.IsNullOrEmpty(id) ? IconCssBase : $"{IconCssBase}--{id}";
+
+    private static readonly Dictionary<string, int> SectionIndexMap = new()
+    {
+        { "self-service", 0 },
+        { "feedback", 1 },
+        { "recognition", 2 },
+        { "career", 3 },
+        { "learning", 4 },
+        { "my-board", 5 },
+    };
+
+    private static readonly Dictionary<int, string> IndexSectionMap = new()
+    {
+        { 0, "self-service" },
+        { 1, "feedback" },
+        { 2, "recognition" },
+        { 3, "career" },
+        { 4, "learning" },
+        { 5, "my-board" },
+    };
+
+    // ===== State =====
+    private int _activeSectionIndex = 0;
+    private int _unreadCount;
+
+    private bool _isReportIssueOpen;
+    private bool _isDelayConcernOpen;
+    private bool _isNotificationsOpen;
+
+    // Polling lifecycle — mirrors React's 5s setInterval with exponential
+    // backoff so a missing backend does not produce one HTTP call every 5s
+    // forever.
+    private CancellationTokenSource? _pollCts;
+
+    protected override void OnInitialized()
+    {
+        // Read the initial section from the URL hash, exactly like the
+        // React version did with `window.location.hash`. Using
+        // NavigationManager means we don't need a JS interop module.
+        var uri = new Uri(Nav.Uri);
+        var hash = uri.Fragment.TrimStart('#');
+        if (!string.IsNullOrEmpty(hash) && SectionIndexMap.TryGetValue(hash, out var idx))
+        {
+            _activeSectionIndex = idx;
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            // Fire-and-forget: don't await the notifications load here — it
+            // must not block first interactive render. If the backend is
+            // down, the bell simply won't show a badge.
+            _ = LoadNotificationsAsync();
+            StartPolling();
+        }
+    }
+
+    public ValueTask DisposeAsync()
+    {
+        _pollCts?.Cancel();
+        _pollCts?.Dispose();
+        _pollCts = null;
+        return ValueTask.CompletedTask;
+    }
+
+    private void StartPolling()
+    {
+        _pollCts = new CancellationTokenSource();
+        var token = _pollCts.Token;
+        // Run the polling loop on the thread pool so it never starves the
+        // Blazor Server render thread. Exponential backoff on failure so a
+        // missing backend does not produce one HTTP call every 5s forever.
+        _ = Task.Run(async () =>
+        {
+            var backoffSeconds = 5;
+            const int maxBackoff = 60;
+            var consecutiveFailures = 0;
+
+            while (!token.IsCancellationRequested)
+            {
+                try
+                {
+                    await Task.Delay(TimeSpan.FromSeconds(backoffSeconds), token);
+                }
+                catch (TaskCanceledException) { return; }
+                if (token.IsCancellationRequested) return;
+
+                try
+                {
+                    var items = await EmployeeExperienceService.GetNotificationsAsync(userId: null, token);
+                    var count = items.Count(n => !n.Read);
+                    await InvokeAsync(() =>
+                    {
+                        _unreadCount = count;
+                        StateHasChanged();
+                    });
+                    backoffSeconds = 5;
+                    consecutiveFailures = 0;
+                }
+                catch (OperationCanceledException) { return; }
+                catch
+                {
+                    // Back off on failure to avoid hammering a missing
+                    // backend. 5s -> 10s -> 20s -> 40s, capped at 60s.
+                    consecutiveFailures++;
+                    backoffSeconds = Math.Min(maxBackoff, 5 * (1 << Math.Min(consecutiveFailures, 4)));
+                }
+            }
+        }, token);
+    }
+
+    private async Task LoadNotificationsAsync()
+    {
+        try
+        {
+            var items = await EmployeeExperienceService.GetNotificationsAsync();
+            _unreadCount = items.Count(n => !n.Read);
+            StateHasChanged();
+        }
+        catch
+        {
+            // Best-effort — leave _unreadCount at 0 if the backend is down.
+        }
+    }
+
+    private void OnTabSelected(Syncfusion.Blazor.Navigations.SelectEventArgs args)
+    {
+        var idx = args.SelectedIndex;
+        if (IndexSectionMap.TryGetValue(idx, out var section))
+        {
+            _activeSectionIndex = idx;
+            // Mirror the React `window.location.hash = activeSection` effect.
+            // The 2-arg overload that takes (uri, forceLoad) is supported
+            // on NavigationManager in .NET 8+.
+            var baseUri = Nav.Uri.Split('#')[0];
+            var newUri = baseUri + "#" + section;
+            Nav.NavigateTo(newUri, forceLoad: false);
+        }
+    }
+
+    private void OpenReportIssue() => _isReportIssueOpen = true;
+    private void CloseReportIssue() => _isReportIssueOpen = false;
+
+    private Task OnReportIssueSubmitted()
+    {
+        _isReportIssueOpen = false;
+        return Task.CompletedTask;
+    }
+
+    private void OpenDelayConcern() => _isDelayConcernOpen = true;
+    private void CloseDelayConcern() => _isDelayConcernOpen = false;
+    private Task OnDelayConcernSubmitted()
+    {
+        _isDelayConcernOpen = false;
+        return Task.CompletedTask;
+    }
+
+    private void OpenNotifications() => _isNotificationsOpen = true;
+    private void CloseNotifications() => _isNotificationsOpen = false;
+
+    private void HandleUnreadChange(int count)
+    {
+        // Mirrors React's onUnreadChange — keeps the bell badge in sync
+        // with whatever the panel computes locally (e.g. after the user
+        // marks a notification as read inside the drawer).
+        _unreadCount = count;
+    }
+
+    private string BellAriaLabel => _unreadCount > 0
+        ? $"Notifications ({_unreadCount} unread)"
+        : "Notifications";
+}

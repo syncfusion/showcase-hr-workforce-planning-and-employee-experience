@@ -1,0 +1,259 @@
+/* KpiCard — port of KpiCard.tsx. Syncfusion .e-card chrome, 12px radius,
+   risk highlight ring, and a 120x40 sparkline slot. */
+
+/* The Syncfusion SfCard wrapper is transparent; all visual chrome lives on
+   the inner .kpi-card so the existing design tokens (border, radius,
+   shadow, risk ring) keep working unchanged. */
+.kpi-card-sf.e-card {
+    background: transparent;
+    border: 0;
+    border-radius: 12px;
+    box-shadow: none;
+    padding: 0;
+    margin: 0;
+    overflow: visible;
+    position: relative;
+    display: block;
+}
+
+.kpi-card {
+    background: var(--color-sf-bg-primary);
+    border: 1px solid var(--color-sf-border-secondary);
+    border-radius: 12px;
+    box-shadow: var(--shadow-default);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    cursor: pointer;
+    transition: box-shadow 0.2s ease, transform 0.2s ease, border-color 0.2s ease;
+}
+
+.kpi-card:hover {
+    box-shadow: var(--shadow-md);
+    transform: translateY(-1px);
+}
+
+.kpi-card--risk {
+    border-color: var(--color-sf-error-300);
+    box-shadow: 0 0 0 1px var(--color-sf-error-100), var(--shadow-default);
+}
+
+.kpi-card--risk:hover {
+    box-shadow: 0 0 0 1px var(--color-sf-error-200), var(--shadow-md);
+}
+
+.kpi-card__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--color-sf-border-tertiary);
+    background: linear-gradient(to bottom, var(--color-sf-bg-secondary), var(--color-sf-bg-primary));
+}
+
+.kpi-card__title {
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--color-sf-fg-tertiary);
+}
+
+.kpi-card__risk-chip {
+    /* Wrapper sizes to the chip's natural width and refuses to shrink
+       so the full "HIGH RISK" label is always visible inside the card. */
+    display: inline-flex;
+    align-items: center;
+    align-self: flex-start;
+    flex-shrink: 0;
+    white-space: nowrap;
+    width: fit-content;
+    max-width: 100%;
+}
+
+/* SfChip defaults to a 32px row height and a 20px item height — too tall
+   for a KPI card header. Lock the item to 22px and bump line-height so
+   descenders (e.g. the "g" in "since") don't clip. Also force the chip
+   to size to its text (Syncfusion's default adds fixed-width chrome
+   that hides the label).
+
+   IMPORTANT: descendant rules below use Blazor's :deep() combinator.
+   Without it, CSS isolation would rewrite the selector to
+   ".e-chip[b-kt01ihs5go]" — but the scope attribute is only attached
+   to the outermost element rendered by this component, NOT to the
+   inner .e-chip element produced by <SfChip>. So plain descendant
+   selectors silently fail to match. */
+.kpi-card__risk-chip :deep(.e-chip-list) {
+    display: inline-flex;
+    align-items: center;
+    width: auto !important;
+    min-width: max-content !important;
+    max-width: none !important;
+    overflow: visible !important;
+}
+
+.kpi-card__risk-chip :deep(.e-chip),
+.kpi-card__delta-chip :deep(.e-chip) {
+    height: 22px;
+    min-height: 22px;
+    line-height: 1.4;
+    padding: 0 8px;
+    border-radius: 1000px;
+    cursor: default;
+    width: auto !important;
+    min-width: max-content !important;
+    max-width: none !important;
+    display: inline-flex;
+    align-items: center;
+    overflow: visible !important;
+    box-sizing: border-box;
+}
+
+.kpi-card__risk-chip :deep(.e-chip) {
+    font-size: 10px;
+    font-weight: 700;
+}
+
+.kpi-card__delta-chip :deep(.e-chip) {
+    font-size: 11px;
+    font-weight: 600;
+    border-radius: 10px;
+}
+
+.kpi-card__risk-chip :deep(.e-chip-text),
+.kpi-card__delta-chip :deep(.e-chip-text) {
+    width: auto !important;
+    min-width: max-content !important;
+    max-width: none !important;
+    overflow: visible !important;
+    text-overflow: clip !important;
+    white-space: nowrap !important;
+    display: inline !important;
+}
+
+.kpi-card__body {
+    padding: 18px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.kpi-card__row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    min-width: 0;
+}
+
+.kpi-card__value-block {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.kpi-card__value {
+    font-size: 32px;
+    font-weight: 700;
+    color: var(--color-sf-fg-primary);
+    line-height: 1.2;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.kpi-card__value--risk {
+    color: var(--color-sf-error-600);
+}
+
+/* Delta chip — sizes to its content, refuses to shrink, and never
+   clips its label. Background/border colors come from the modifier
+   rules below. */
+.kpi-card__delta-chip {
+    display: inline-flex;
+    align-items: center;
+    align-self: flex-start;
+    flex-shrink: 0;
+    white-space: nowrap;
+    max-width: 100%;
+}
+
+.kpi-card__delta-chip--up :deep(.e-chip) {
+    background-color: var(--color-sf-success-100);
+    color: #0f5132;
+    border: 1px solid var(--color-sf-success-200);
+}
+
+.kpi-card__delta-chip--down :deep(.e-chip) {
+    background-color: var(--color-sf-error-100);
+    color: var(--color-sf-error-700, #842029);
+    border: 1px solid var(--color-sf-error-200);
+}
+
+.kpi-card__spark {
+    flex: 0 0 clamp(80px, 35%, 140px);
+    min-width: 0;
+    height: 40px;
+    display: block;
+    overflow: hidden;
+}
+
+.kpi-card__spark-svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+
+.kpi-card__context {
+    font-size: 12px;
+    color: var(--color-sf-fg-quaternary);
+    line-height: 1.5;
+}
+
+.kpi-card__critical {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.kpi-card__critical-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: #dc2626;
+    min-height: 20px;
+    display: flex;
+    align-items: center;
+}
+
+.kpi-card__critical-spacer {
+    width: 100%;
+    height: 14px;
+}
+
+.kpi-card__progress-block {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.kpi-card__progress-label {
+    min-height: 20px;
+    display: flex;
+    align-items: center;
+}
+
+.kpi-card__progress-label > span {
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.kpi-card__progress-label--on-target { color: #059669; }
+.kpi-card__progress-label--needs-attention { color: #d97706; }
+
+.kpi-card__progress-bar {
+    width: 100%;
+    height: 14px;
+}

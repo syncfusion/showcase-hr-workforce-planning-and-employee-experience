@@ -1,0 +1,367 @@
+@*
+  Port of src/screens/WorkforcePlanning/index.tsx. Route "/workforce".
+
+  Layout (top → bottom):
+    1. PageHeader
+    2. Summary grid (4 e-card stat cards)
+    3. Staffing Breakdown — SfChart Bar with 3 series + SfDropDownList scenario picker
+    4. Scenario Comparison — 3 VarianceCard (Headcount / Budget / Hiring)
+
+  Syncfusion mapping (React → Blazor):
+    - ChipListComponent (ChipsDirective/ChipDirective) → SfChip + ChipItems + ChipItem
+    - ChartComponent + SeriesCollectionDirective + SeriesDirective + Inject(...)
+        → <SfChart><ChartPrimaryXAxis/><ChartPrimaryYAxis/>
+              <ChartSeriesCollection><ChartSeries Type="ChartSeriesType.Bar" .../></...>
+          </SfChart>
+    - DropDownListComponent → SfDropDownList<TValue,TItem>
+    - ButtonComponent (not actually used by this screen, but SfButton is imported in csproj)
+    - PageHeader / LoadingState / EmptyState / ErrorState are local Components/Shared/ ports
+*@
+
+@page "/workforce"
+@using BlazorWebApp.Components.Models
+@using BlazorWebApp.Components.Shared
+@using BlazorWebApp.Components.WorkforcePlanning
+@using BlazorWebApp.Services
+@inject IWorkforcePlanningService WorkforceService
+@inject NavigationManager Nav
+@inject ThemeService Theme
+@implements IDisposable
+
+<PageTitle>Workforce Planning</PageTitle>
+
+<div class="workforce-planning-screen">
+    <PageHeader Title="Workforce Planning"
+                Subtitle="Compare scenarios, staffing gaps, and budget impact" />
+
+    @if (_isLoading)
+    {
+        <LoadingState Variant="LoadingState.VariantKind.Spinner" Height="400px" />
+    }
+    else if (_error is not null)
+    {
+        <ErrorState Message="@_error" OnRetry="Reload" />
+    }
+    else if (_plans.Count == 0)
+    {
+        <EmptyState Title="No workforce planning data yet"
+                    Description="Create or import a workforce plan to compare scenarios and track staffing gaps."
+                    ActionLabel="Create Plan"
+                    OnAction="HandleCreatePlan" />
+    }
+    else
+    {
+        <div class="summary-grid wp-stat-cards" aria-label="Workforce planning summary">
+            <PlanCard Name="@(_activePlan?.Name ?? "—")"
+                      Status="@_activePlan?.Status"
+                      LatestSnapshotAt="Not Taken" />
+            <PlanPeriodCard Start="@(_activePlan?.PlanningPeriodStart ?? "")"
+                            End="@(_activePlan?.PlanningPeriodEnd ?? "")" />
+            <ScenarioCard Name="@(_selectedScenario?.Name ?? "—")"
+                          Confidence="@_selectedScenario?.Confidence"
+                          HeadcountTarget="@_selectedScenario?.HeadcountTarget"
+                          BudgetImpact="@_selectedScenario?.BudgetImpact" />
+            <SnapshotCard Count="@_snapshots.Count"
+                          LastSnapshotAt="@(_snapshots.Count > 0 ? _snapshots[0].CapturedAt : null)" />
+        </div>
+
+        <section class="wp-card section-container">
+            <div class="wp-section-header">
+                <h2 class="wp-section-title">Staffing Breakdown</h2>
+                <div class="wp-section-actions">
+                    <SfDropDownList TValue="string"
+                                    TItem="WorkforceScenario"
+                                    DataSource="@_planScenarios"
+                                    Placeholder="Select scenario"
+                                    PopupHeight="220px"
+                                    @bind-Value="@_selectedScenarioId">
+                        <DropDownListFieldSettings Text="Name" Value="Id" />
+                        <DropDownListEvents TValue="string"
+                                            TItem="WorkforceScenario"
+                                            ValueChange="@OnScenarioChanged" />
+                    </SfDropDownList>
+                </div>
+            </div>
+
+            @if (_chartData.Count > 0)
+            {
+                <SfChart Height="400px" Theme="@_chartTheme">
+                    <ChartPrimaryXAxis ValueType="Syncfusion.Blazor.Charts.ValueType.Category"
+                                       Title="Function" />
+                    <ChartPrimaryYAxis Title="Headcount" />
+                    <ChartLegendSettings Visible="true" Position="Syncfusion.Blazor.Charts.LegendPosition.Bottom" />
+                    <ChartTooltipSettings Enable="true" />
+                    <ChartSeriesCollection>
+                        <ChartSeries DataSource="@_chartData"
+                                     XName="FunctionName"
+                                     YName="Current"
+                                     Name="Current"
+                                     Type="Syncfusion.Blazor.Charts.ChartSeriesType.Bar"
+                                     Fill="var(--color-sf-brand-600)">
+                            <ChartMarker>
+                                <ChartDataLabel Visible="true"
+                                                Position="Syncfusion.Blazor.Charts.LabelPosition.Top" />
+                            </ChartMarker>
+                        </ChartSeries>
+                        <ChartSeries DataSource="@_chartData"
+                                     XName="FunctionName"
+                                     YName="Planned"
+                                     Name="Planned"
+                                     Type="Syncfusion.Blazor.Charts.ChartSeriesType.Bar"
+                                     Fill="var(--color-sf-success-600)">
+                            <ChartMarker>
+                                <ChartDataLabel Visible="true"
+                                                Position="Syncfusion.Blazor.Charts.LabelPosition.Top" />
+                            </ChartMarker>
+                        </ChartSeries>
+                        <ChartSeries DataSource="@_chartData"
+                                     XName="FunctionName"
+                                     YName="Open"
+                                     Name="Open Roles"
+                                     Type="Syncfusion.Blazor.Charts.ChartSeriesType.Bar"
+                                     Fill="var(--color-sf-warning-500)">
+                            <ChartMarker>
+                                <ChartDataLabel Visible="true"
+                                                Position="Syncfusion.Blazor.Charts.LabelPosition.Top" />
+                            </ChartMarker>
+                        </ChartSeries>
+                    </ChartSeriesCollection>
+                </SfChart>
+            }
+            else
+            {
+                <EmptyState Title="No staffing data"
+                            Description="Select a scenario to view staffing breakdown."
+                            ActionLabel="Refresh"
+                            OnAction="Reload" />
+            }
+        </section>
+
+        <section class="wp-card wp-comparison-panel">
+            <div class="wp-section-header">
+                <h2 class="wp-section-title">Scenario Comparison</h2>
+            </div>
+            <p class="wp-comparison-subtitle">
+                Variance of <strong>@(_selectedScenario?.Name ?? "—")</strong> against the baseline scenario
+                <strong>@(_baselineScenario?.Name ?? "—")</strong>.
+            </p>
+
+            <div class="wp-variance-grid">
+                <VarianceCard Label="Headcount Variance"
+                              Value="@HeadcountVarianceLabel"
+                              Baseline="@_baselineTotals.Headcount"
+                              Selected="@_selectedTotals.Headcount"
+                              Unit="FTE" />
+                <VarianceCard Label="Budget Variance"
+                              Value="@BudgetVarianceLabel"
+                              Baseline="@_baselineTotals.Budget"
+                              Selected="@_selectedTotals.Budget"
+                              Unit=""
+                              IsCurrency="true" />
+                <VarianceCard Label="Hiring Variance"
+                              Value="@HiringVarianceLabel"
+                              Baseline="@_baselineTotals.Hiring"
+                              Selected="@_selectedTotals.Hiring"
+                              Unit="requisitions" />
+            </div>
+        </section>
+    }
+</div>
+
+@code {
+    // Theme binding: SfChart's Theme parameter does not auto-react to
+    // body.e-dark-mode, so we mirror Theme.ChartTheme into a local field
+    // and re-render when ThemeService.Changed fires. This is the
+    // single-page equivalent of wrapping the chart in <ChartTheme> +
+    // subscribing to Changed — the wrapper component lives in
+    // Components/Shared/ChartTheme.razor and is recommended for new
+    // charts. See that file for the canonical pattern.
+    private Syncfusion.Blazor.Theme _chartTheme = Syncfusion.Blazor.Theme.Tailwind;
+
+    protected override void OnInitialized()
+    {
+        Theme.Changed += OnThemeChanged;
+        SyncChartTheme();
+    }
+
+    private void OnThemeChanged()
+    {
+        SyncChartTheme();
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void SyncChartTheme()
+    {
+        var next = Theme.ChartTheme;
+        if (next != _chartTheme)
+        {
+            _chartTheme = next;
+        }
+    }
+
+    public void Dispose() => Theme.Changed -= OnThemeChanged;
+
+    private IReadOnlyList<WorkforcePlan> _plans = Array.Empty<WorkforcePlan>();
+    private IReadOnlyList<WorkforceScenario> _scenarios = Array.Empty<WorkforceScenario>();
+    private IReadOnlyList<WorkforceLineItem> _lineItems = Array.Empty<WorkforceLineItem>();
+    private IReadOnlyList<PlanningSnapshot> _snapshots = Array.Empty<PlanningSnapshot>();
+    private List<FunctionStaffingRow> _chartData = new();
+
+    private string _selectedScenarioId = string.Empty;
+    private bool _isLoading = true;
+    private string? _error;
+
+    private WorkforcePlan? _activePlan;
+    private WorkforceScenario? _selectedScenario;
+    private WorkforceScenario? _baselineScenario;
+
+    private (int Headcount, double Budget, int Hiring) _baselineTotals;
+    private (int Headcount, double Budget, int Hiring) _selectedTotals;
+
+    private IEnumerable<WorkforceScenario> _planScenarios =>
+        _scenarios.Where(s => s.PlanId == _activePlan?.Id).ToList();
+
+    private string HeadcountVarianceLabel
+    {
+        get
+        {
+            var v = _selectedTotals.Headcount - _baselineTotals.Headcount;
+            return v > 0 ? $"+{v}" : v.ToString();
+        }
+    }
+
+    private string BudgetVarianceLabel
+    {
+        get
+        {
+            var v = _selectedTotals.Budget - _baselineTotals.Budget;
+            var abs = Math.Abs(v) / 1_000_000.0;
+            if (v > 0) return $"+${abs:0.00}M";
+            if (v < 0) return $"-${abs:0.00}M";
+            return $"${abs:0.00}M";
+        }
+    }
+
+    private string HiringVarianceLabel
+    {
+        get
+        {
+            var v = _selectedTotals.Hiring - _baselineTotals.Hiring;
+            return v > 0 ? $"+{v}" : v.ToString();
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Reload();
+    }
+
+    private async Task Reload()
+    {
+        try
+        {
+            _isLoading = true;
+            _error = null;
+
+            _plans = await WorkforceService.GetPlansAsync();
+            _activePlan = _plans.FirstOrDefault();
+
+            _scenarios = await WorkforceService.GetScenariosAsync(_activePlan?.Id);
+            _lineItems = await WorkforceService.GetLineItemsAsync();
+
+            _baselineScenario = _scenarios.FirstOrDefault(s => s.Type == "baseline")
+                ?? _scenarios.FirstOrDefault();
+
+            _selectedScenarioId = _baselineScenario?.Id ?? _scenarios.FirstOrDefault()?.Id ?? string.Empty;
+
+            _snapshots = SeedSnapshots;
+        }
+        catch (Exception ex)
+        {
+            _error = "Failed to load workforce planning data";
+            Console.Error.WriteLine(ex);
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    protected override void OnParametersSet() => Recompute();
+
+    // Called by the SfDropDownList ValueChange event. We do NOT rely on
+    // OnAfterRender side effects here — that would re-run on every
+    // re-render and could clobber the user-selected scenario if the
+    // derived _planScenarios re-evaluates with a fresh List reference.
+    // Instead we update state synchronously inside the change callback
+    // and call Recompute() once to refresh _selectedScenario /
+    // _selectedTotals / _chartData.
+    private void OnScenarioChanged(Syncfusion.Blazor.DropDowns.ChangeEventArgs<string, WorkforceScenario> args)
+    {
+        _selectedScenarioId = args.Value ?? string.Empty;
+        Recompute();
+    }
+
+    private void Recompute()
+    {
+        _baselineScenario ??= _scenarios.FirstOrDefault(s => s.Type == "baseline")
+            ?? _scenarios.FirstOrDefault();
+        _selectedScenario = _scenarios.FirstOrDefault(s => s.Id == _selectedScenarioId)
+            ?? _scenarios.FirstOrDefault(s => s.Type == "baseline")
+            ?? _scenarios.FirstOrDefault();
+
+        _baselineTotals = (
+            _baselineScenario?.HeadcountTarget ?? 0,
+            _baselineScenario?.BudgetImpact ?? 0d,
+            _baselineScenario?.HiringTarget ?? 0);
+        _selectedTotals = (
+            _selectedScenario?.HeadcountTarget ?? 0,
+            _selectedScenario?.BudgetImpact ?? 0d,
+            _selectedScenario?.HiringTarget ?? 0);
+
+        _chartData = BuildChartData();
+    }
+
+    private List<FunctionStaffingRow> BuildChartData()
+    {
+        if (_selectedScenario is null) return new();
+        var rows = _lineItems
+            .Where(li => li.ScenarioId == _selectedScenario.Id)
+            .GroupBy(li => li.Function)
+            .Select(g => new FunctionStaffingRow
+            {
+                FunctionName = g.Key,
+                Current = g.Sum(x => x.CurrentHeadcount),
+                Planned = g.Sum(x => x.PlannedHeadcount),
+                Open = g.Sum(x => x.OpenRoles ?? 0),
+            })
+            .OrderBy(r => r.FunctionName)
+            .ToList();
+        return rows;
+    }
+
+    private void HandleCreatePlan()
+    {
+        // TODO(react): wire to a real "create plan" flow; for now we just
+        // surface that the user pressed the CTA.
+        Nav.NavigateTo("/workforce", forceLoad: true);
+    }
+
+    // Mirrors planningSnapshots from src/services/mockData.ts. Kept in-page
+    // (rather than as a service call) to match the React behavior where
+    // snapshots were a static constant. Real implementation would add
+    // GetSnapshotsAsync to IWorkforcePlanningService.
+    private static readonly IReadOnlyList<PlanningSnapshot> SeedSnapshots = new List<PlanningSnapshot>
+    {
+        new("snap_2026_06_18", "wp_2026_q3", "2026-06-18T09:00:00-04:00", "u_209", "hris"),
+        new("snap_2026_06_15", "wp_2026_q3", "2026-06-15T18:30:00+01:00", "u_104", "planning-sheet"),
+    };
+
+    private sealed record FunctionStaffingRow
+    {
+        public string FunctionName { get; init; } = "";
+        public int Current { get; init; }
+        public int Planned { get; init; }
+        public int Open { get; init; }
+    }
+}

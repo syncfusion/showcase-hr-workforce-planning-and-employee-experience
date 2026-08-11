@@ -1,0 +1,42 @@
+/* PlanCard — port of the inline PlanCard in
+   src/screens/WorkforcePlanning/index.tsx.
+
+   The Syncfusion SfCard wrapper is transparent; all visual chrome lives
+   on the inner divs. The shared .wp-stat-* / .wp-status-chip rules
+   stay in WorkforcePlanning.razor.css (the inner divs are Blazor-
+   rendered, so the [b-scope] attribute applies and the rules match
+   there). This file only handles the SfCard wrapper + the .e-card
+   reset, mirroring the KpiCard.razor.css pattern. */
+
+.wp-stat-card-sf.e-card {
+    background: transparent;
+    border: 0;
+    border-radius: 10px;
+    box-shadow: none;
+    padding: 0;
+    margin: 0;
+    overflow: visible;
+    position: relative;
+    display: block;
+    min-width: 0;
+}
+
+.wp-stat-card-sf {
+    /* Visible chrome on a Blazor-rendered inner div so the [b-scope]
+       attribute applies. Compact size, left accent border. */
+    border-radius: 10px;
+    border: 1px solid var(--color-sf-border-secondary);
+    border-left: 3px solid var(--color-sf-brand-primary);
+    background: var(--color-sf-bg-primary);
+    box-shadow: var(--shadow-sm);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.wp-stat-card-sf:hover {
+    box-shadow: var(--shadow-md);
+    transform: translateY(-1px);
+}

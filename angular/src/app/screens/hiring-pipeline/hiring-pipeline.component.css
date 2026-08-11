@@ -1,0 +1,289 @@
+/* Hiring Pipeline — Candidates view.
+   Mirrors the inline <style> block in src/screens/HiringPipeline/CandidatesView.tsx
+   plus the .hiring-pipeline-screen wrapper from src/screens/HiringPipeline/index.tsx. */
+
+:host { display: block; }
+
+.hiring-pipeline-screen {
+  animation: hp-fade-in 0.3s ease-in;
+}
+
+@keyframes hp-fade-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.candidates-view {
+  animation: candidates-fade-in 0.3s ease-in;
+}
+
+@keyframes candidates-fade-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.candidates-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin: 8px 0 16px;
+}
+
+.status-tabs {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.status-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 0;
+  background: transparent;
+  color: var(--color-sf-fg-secondary);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  border-radius: 6px;
+  white-space: nowrap;
+  position: relative;
+  transition: color 0.15s;
+}
+.status-tab:hover { color: var(--color-sf-fg-primary); }
+.status-tab.active { color: var(--color-sf-fg-primary); }
+
+.status-tab-count {
+  display: inline-block;
+  min-width: 24px;
+  padding: 2px 6px;
+  font-size: 11px;
+  font-weight: 700;
+  text-align: center;
+  background: var(--color-sf-bg-tertiary);
+  color: var(--color-sf-fg-secondary);
+  border-radius: 4px;
+}
+.status-tab-count.active {
+  background: var(--color-sf-brand-600);
+  color: var(--color-sf-base-white);
+}
+
+.candidates-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.view-toggle-inline {
+  display: inline-flex;
+  background: var(--color-sf-bg-secondary);
+  border: 1px solid var(--color-sf-border-secondary);
+  border-radius: 8px;
+  padding: 3px;
+}
+.view-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border: 0;
+  background: transparent;
+  color: var(--color-sf-fg-secondary);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  border-radius: 6px;
+}
+.view-toggle-btn.active {
+  background: var(--color-sf-bg-primary);
+  color: var(--color-sf-fg-primary);
+  box-shadow: var(--shadow-default);
+}
+
+/* Syncfusion mounts the context menu into the body; we still hide the
+   host <ejs-contextmenu> placeholder, which would otherwise render an
+   empty list. */
+::ng-deep #applicantContextMenu { display: none !important; }
+
+.candidates-grid {
+  background: var(--color-sf-bg-secondary);
+}
+
+.candidate-cell {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 0;
+}
+.candidate-cell-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.candidate-name { font-weight: 600; font-size: 14px; color: var(--color-sf-fg-primary); }
+.candidate-email { font-size: 12px; color: var(--color-sf-fg-quaternary); }
+
+.position-cell { display: flex; flex-direction: column; gap: 2px; }
+.position-title { font-weight: 600; font-size: 14px; color: var(--color-sf-fg-primary); }
+.position-dept { font-size: 10px; font-weight: 700; letter-spacing: 0.6px; color: var(--color-sf-fg-quaternary); }
+
+.date-cell { display: flex; flex-direction: column; gap: 2px; }
+.date-line1 { font-size: 13px; font-weight: 600; color: var(--color-sf-fg-primary); }
+.date-line2 { font-size: 10px; font-weight: 700; color: var(--color-sf-fg-quaternary); letter-spacing: 0.4px; }
+
+.row-action-btn {
+  width: 32px;
+  height: 32px;
+  border: 0;
+  background: transparent;
+  color: var(--color-sf-fg-quaternary);
+  border-radius: 6px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: auto;
+}
+.row-action-btn:hover { background: var(--color-sf-bg-tertiary); color: var(--color-sf-fg-primary); }
+
+.avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-sf-base-white);
+  font-weight: 700;
+  font-size: 13px;
+  flex-shrink: 0;
+  background: var(--color-sf-brand-600);
+}
+.avatar-sm { width: 32px; height: 32px; font-size: 11px; }
+.avatar-a { background: linear-gradient(135deg, #6366f1, #8b5cf6); }
+.avatar-b { background: linear-gradient(135deg, #06b6d4, #3b82f6); }
+.avatar-c { background: linear-gradient(135deg, #f43f5e, #f97316); }
+.avatar-d { background: linear-gradient(135deg, #10b981, #14b8a6); }
+.avatar-e { background: linear-gradient(135deg, #f59e0b, #ef4444); }
+.avatar-f { background: linear-gradient(135deg, #8b5cf6, #ec4899); }
+.avatar-g { background: linear-gradient(135deg, #14b8a6, #06b6d4); }
+.avatar-h { background: linear-gradient(135deg, #ec4899, #f43f5e); }
+.avatar-i { background: linear-gradient(135deg, #3b82f6, #6366f1); }
+.avatar-j { background: linear-gradient(135deg, #f97316, #f59e0b); }
+.avatar-k { background: linear-gradient(135deg, #84cc16, #10b981); }
+.avatar-l { background: linear-gradient(135deg, #a855f7, #6366f1); }
+.avatar-m { background: linear-gradient(135deg, #ef4444, #f97316); }
+.avatar-n { background: linear-gradient(135deg, #0891b2, #6366f1); }
+.avatar-o { background: linear-gradient(135deg, #16a34a, #84cc16); }
+.avatar-p { background: linear-gradient(135deg, #db2777, #f43f5e); }
+.avatar-q { background: linear-gradient(135deg, #0ea5e9, #06b6d4); }
+.avatar-r { background: linear-gradient(135deg, #7c3aed, #a855f7); }
+.avatar-s { background: linear-gradient(135deg, #ea580c, #f59e0b); }
+.avatar-t { background: linear-gradient(135deg, #059669, #10b981); }
+.avatar-u { background: linear-gradient(135deg, #be185d, #db2777); }
+.avatar-v { background: linear-gradient(135deg, #4338ca, #7c3aed); }
+.avatar-w { background: linear-gradient(135deg, #0d9488, #0ea5e9); }
+.avatar-x { background: linear-gradient(135deg, #c2410c, #ea580c); }
+.avatar-y { background: linear-gradient(135deg, #65a30d, #84cc16); }
+.avatar-z { background: linear-gradient(135deg, #9333ea, #c026d3); }
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border-radius: var(--radius-full);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+.status-pill .status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.status-pill.status-new {
+  background: var(--color-sf-info-100);
+  color: var(--color-sf-info-700);
+}
+.status-pill.status-screening {
+  background: #ede9fe;
+  color: #6d28d9;
+}
+.status-pill.status-interview {
+  background: #ffe4e1;
+  color: #b91c1c;
+}
+.status-pill.status-offer {
+  background: var(--color-sf-success-100);
+  color: var(--color-sf-success-700);
+}
+.status-pill.status-hired {
+  background: #dcfce7;
+  color: #166534;
+}
+.status-pill.status-rejected {
+  background: #fce7f3;
+  color: #be185d;
+}
+
+.candidate-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  background: var(--color-sf-bg-primary);
+  border: 1px solid var(--color-sf-border-secondary);
+  border-radius: 8px;
+  cursor: move;
+  min-height: 120px;
+}
+.candidate-card:hover { border-color: var(--color-sf-brand-600); }
+.candidate-card-row { display: flex; align-items: center; gap: 10px; }
+.candidate-card-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.candidate-card-name { font-weight: 700; font-size: 13px; color: var(--color-sf-fg-primary); }
+.candidate-card-position { font-size: 11px; color: var(--color-sf-fg-quaternary); }
+.candidate-card-footer { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.candidate-card-source { font-size: 11px; color: var(--color-sf-fg-quaternary); }
+
+.kanban-container {
+  background: var(--color-sf-bg-secondary);
+  border: 1px solid var(--color-sf-border-secondary);
+  border-radius: 8px;
+  padding: 8px;
+  box-shadow: var(--shadow-default);
+}
+.kanban-container-scroll {
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  padding: 12px;
+}
+/* On compact viewports, force the kanban content to lay out horizontally
+   and pin every column to a fixed width so the user can scroll. */
+::ng-deep .kanban-container-scroll .e-kanban-content {
+  display: inline-flex;
+  flex-wrap: nowrap;
+  min-width: max-content;
+}
+::ng-deep .kanban-container-scroll .e-kanban-column {
+  flex: 0 0 240px;
+  max-width: 240px;
+}
+
+@media (max-width: 480px) {
+  .candidates-header { flex-direction: column; align-items: stretch; }
+  .candidates-actions { width: 100%; }
+  .candidates-grid-compact { border-radius: 6px; }
+  .status-tab { padding: 6px 10px; font-size: 12px; }
+  .status-tab-count { font-size: 10px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hiring-pipeline-screen,
+  .candidates-view { animation: none; }
+}

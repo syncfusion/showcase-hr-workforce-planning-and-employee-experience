@@ -1,0 +1,237 @@
+@*
+  Port of src/screens/EmployeeExperience/components/CareerSection.tsx.
+
+  Shows the current user's career development plan(s), with a SfProgressBar
+  overall-completion bar and an SfGrid of milestones whose status is
+  editable via inline SfDropDownList. Milestone status changes are
+  PATCHed to the API via UpdateMilestoneStatusAsync; the server returns
+  the full recalculated plan, which we splice back into local state.
+*@
+
+@inject IEmployeeExperienceService EmployeeExperienceService
+
+@if (_isLoading)
+{
+    <LoadingState Variant="LoadingState.VariantKind.Spinner" Height="300px" />
+}
+else if (_error is not null)
+{
+    <ErrorState Message="@_error" OnRetry="LoadAsync" />
+}
+else if (_plans.Count == 0)
+{
+    <EmptyState Title="No career plan yet"
+                Description="Create a career development plan with milestones to track your growth."
+                ActionLabel="Create a Career Plan"
+                OnAction="() => { /* TODO: hook to a 'create plan' flow */ }" />
+}
+else
+{
+    <div class="ee-list">
+        @foreach (var plan in _plans)
+        {
+            var milestoneCount = plan.Milestones.Count;
+            var completed = plan.Milestones.Count(m => string.Equals(m.Status, "completed", StringComparison.OrdinalIgnoreCase));
+            var progress = milestoneCount == 0
+                ? 0
+                : (int)Math.Round(100.0 * completed / milestoneCount);
+            var statusColor = StatusColors.GetValueOrDefault(plan.Status, "#6C757D");
+            var statusLabel = StatusLabels.GetValueOrDefault(plan.Status, plan.Status);
+            var horizonLabel = HorizonLabels.GetValueOrDefault(plan.Horizon, plan.Horizon);
+            <div class="ee-card">
+                <div class="ee-card-row ee-card-row--spaced">
+                    <div>
+                        <strong class="ee-card-title">
+                            @plan.CurrentRole
+                            @if (!string.IsNullOrEmpty(plan.TargetRole))
+                            {
+                                <span> → @plan.TargetRole</span>
+                            }
+                        </strong>
+                        <div class="ee-muted">
+                            @plan.EmployeeName · @horizonLabel · Plan @plan.Id
+                        </div>
+                    </div>
+                    <span class="ee-badge" style="background:@statusColor">@statusLabel</span>
+                </div>
+
+                <div class="ee-card-meta">
+                    <span>📊 @completed/@milestoneCount milestones (@progress%)</span>
+                    @if (!string.IsNullOrEmpty(plan.LastReviewedAt))
+                    {
+                        <span>· last reviewed @FormatDate(plan.LastReviewedAt!)</span>
+                    }
+                </div>
+
+                <div class="ee-progress-wrap">
+                    <SfProgressBar Type="Syncfusion.Blazor.ProgressBar.ProgressType.Linear"
+                                   Height="8"
+                                   Value="@progress"
+                                   TrackThickness="8"
+                                   ProgressThickness="8"
+                                   Minimum="0" Maximum="100"
+                                   ShowProgressValue="false" />
+                </div>
+
+                <SfGrid TValue="CareerMilestone"
+                        DataSource="@plan.Milestones"
+                        AllowPaging="false"
+                        AllowSorting="false"
+                        Height="auto">
+                    <GridColumns>
+                        <GridColumn Field=@nameof(CareerMilestone.Title) HeaderText="Milestone" Width="220" />
+                        <GridColumn Field=@nameof(CareerMilestone.TargetDate) HeaderText="Target" Width="120">
+                            <Template>
+                                @{ var m = (CareerMilestone)context; }
+                                <span>@(string.IsNullOrEmpty(m.TargetDate) ? "—" : FormatDate(m.TargetDate!))</span>
+                            </Template>
+                        </GridColumn>
+                        <GridColumn Field=@nameof(CareerMilestone.Status) HeaderText="Status" Width="120">
+                            <Template>
+                                @{ var m = (CareerMilestone)context; var color = MilestoneStatusColors.GetValueOrDefault(m.Status, "#6C757D"); }
+                                <span class="ee-badge" style="background:@color">@m.Status.Replace("-", " ")</span>
+                            </Template>
+                        </GridColumn>
+                        <GridColumn HeaderText="Update" Width="160">
+                            <Template>
+                                @{ var m = (CareerMilestone)context; }
+                                <SfDropDownList TValue="string" TItem="string"
+                                                DataSource="@_milestoneStatusValues"
+                                                Value="@m.Status"
+                                                Placeholder="Select status">
+                                    <DropDownListFieldSettings Value="Value" Text="Text" />
+                                    <DropDownListTemplates TItem="string">
+                                        <ItemTemplate Context="statusValue">
+                                            @{
+                                                var raw = statusValue?.ToString() ?? string.Empty;
+                                                var label = _milestoneStatusOptions
+                                                    .FirstOrDefault(o => o.Value == raw)?.Label ?? raw;
+                                            }
+                                            <span>@label</span>
+                                        </ItemTemplate>
+                                    </DropDownListTemplates>
+                                    <DropDownListEvents TValue="string" TItem="string"
+                                                         ValueChange="@(args => HandleStatusChange(plan.Id, m.Id, args.Value))" />
+                                </SfDropDownList>
+                            </Template>
+                        </GridColumn>
+                    </GridColumns>
+                </SfGrid>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    private List<CareerDevelopmentPlan> _plans = new();
+    private bool _isLoading = true;
+    private string? _error;
+
+    private record MilestoneStatusOption(string Value, string Label);
+
+    private static readonly List<MilestoneStatusOption> _milestoneStatusOptions = new()
+    {
+        new("not-started", "Not-Started"),
+        new("in-progress", "In-Progress"),
+        new("completed", "Completed"),
+        new("blocked", "Blocked"),
+    };
+
+    private static readonly List<string> _milestoneStatusValues = new()
+    {
+        "not-started", "in-progress", "completed", "blocked",
+    };
+
+    private static readonly Dictionary<string, string> StatusLabels = new()
+    {
+        { "draft", "Draft" },
+        { "on-track", "On Track" },
+        { "at-risk", "At Risk" },
+        { "completed", "Completed" },
+        { "stalled", "Stalled" },
+    };
+
+    private static readonly Dictionary<string, string> StatusColors = new()
+    {
+        { "draft", "#6C757D" },
+        { "on-track", "#28A745" },
+        { "at-risk", "#FFC107" },
+        { "completed", "#28A745" },
+        { "stalled", "#DC3545" },
+    };
+
+    private static readonly Dictionary<string, string> HorizonLabels = new()
+    {
+        { "6-months", "6 months" },
+        { "12-months", "12 months" },
+        { "24-months", "24 months" },
+    };
+
+    private static readonly Dictionary<string, string> MilestoneStatusColors = new()
+    {
+        { "not-started", "#6C757D" },
+        { "in-progress", "#3B8CDE" },
+        { "completed", "#28A745" },
+        { "blocked", "#DC3545" },
+    };
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        try
+        {
+            _isLoading = true;
+            _error = null;
+            var data = await EmployeeExperienceService.GetCareerPlansAsync();
+            _plans = data.ToList();
+        }
+        catch (Exception ex)
+        {
+            _error = "Failed to load career plans";
+            Console.Error.WriteLine(ex);
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task HandleStatusChange(string planId, string milestoneId, string? newStatus)
+    {
+        if (string.IsNullOrEmpty(newStatus)) return;
+
+        // Optimistic update for snappy UI; the server response replaces the
+        // full plan in state once the PATCH lands.
+        _plans = _plans.Select(p => p.Id != planId ? p : p with
+        {
+            Milestones = p.Milestones.Select(m => m.Id != milestoneId ? m : m with { Status = newStatus }).ToList()
+        }).ToList();
+
+        try
+        {
+            var updated = await EmployeeExperienceService.UpdateMilestoneStatusAsync(planId, milestoneId, newStatus);
+            if (updated is not null)
+            {
+                // Server returns the full plan with recalculated status.
+                // Splice it back in so the plan-level badge tracks the
+                // server-side rollup (e.g. "stalled" when any milestone
+                // becomes "blocked").
+                _plans = _plans.Select(p => p.Id == updated.Id ? updated : p).ToList();
+            }
+        }
+        catch (Exception ex)
+        {
+            _error = "Failed to update milestone";
+            Console.Error.WriteLine(ex);
+            // Roll back by reloading.
+            await LoadAsync();
+        }
+    }
+
+    private static string FormatDate(string iso)
+    {
+        if (DateTimeOffset.TryParse(iso, out var dt)) return dt.ToLocalTime().ToString("MMM d, yyyy");
+        return iso;
+    }
+}

@@ -1,0 +1,333 @@
+@*
+  Port of src/screens/EmployeeExperience/components/RecognitionSection.tsx.
+
+  Recognition feed: lists recognitions, supports creating a new recognition
+  via inline form. Mirrors the React PEERS static array, weekly-volume
+  bar chart, and Recognition card chrome.
+*@
+
+@inject IEmployeeExperienceService EmployeeExperienceService
+
+@if (_isLoading)
+{
+    <LoadingState Variant="LoadingState.VariantKind.Spinner" Height="300px" />
+}
+else if (_error is not null)
+{
+    <ErrorState Message="@_error" OnRetry="LoadAsync" />
+}
+else if (_items.Count == 0 && !_showForm)
+{
+    <EmptyState Title="No recognitions yet"
+                Description="Recognize a peer for a win, milestone, or leadership moment."
+                ActionLabel="Give Recognition"
+                OnAction="() => _showForm = true" />
+}
+else
+{
+    <div class="ee-subsection-wrap">
+        <div class="ee-subsection-header">
+            <h3 class="ee-section-title">Recognition Feed</h3>
+            <SfButton CssClass="e-primary" OnClick="ToggleForm">
+                @(_showForm ? "Cancel" : "+ Give Recognition")
+            </SfButton>
+        </div>
+
+        @if (_showForm)
+        {
+            <form class="ee-card ee-form" @onsubmit="HandleSubmit" @onsubmit:preventDefault aria-label="Give recognition">
+                <div class="ee-field">
+                    <label for="rec-to">Recipient</label>
+                    <SfDropDownList TValue="string" TItem="PeerOption"
+                                    DataSource="@_peers"
+                                    Value="@_form.ToEmployeeId"
+                                    ValueChanged="@OnPeerChanged"
+                                    Placeholder="Select recipient">
+                        <DropDownListFieldSettings Text="Name" Value="Id" />
+                    </SfDropDownList>
+                </div>
+                <div class="ee-field">
+                    <label for="rec-type">Type</label>
+                    <SfDropDownList TValue="string" TItem="string"
+                                    DataSource="@_typeOptions"
+                                    Value="@_form.Type"
+                                    ValueChanged="@(v => _form.Type = v ?? "peer-shoutout")"
+                                    Placeholder="Select type" />
+                </div>
+                <div class="ee-field">
+                    <label for="rec-value">Company Value</label>
+                    <SfDropDownList TValue="string" TItem="string"
+                                    DataSource="@_valueOptions"
+                                    Value="@(_form.Value ?? string.Empty)"
+                                    ValueChanged="@(v => _form.Value = string.IsNullOrEmpty(v) ? null : v)"
+                                    Placeholder="Select value" />
+                </div>
+                <div class="ee-field">
+                    <label for="rec-audience">Audience</label>
+                    <SfDropDownList TValue="string" TItem="string"
+                                    DataSource="@_visibilityOptions"
+                                    Value="@_form.VisibleTo"
+                                    ValueChanged="@(v => _form.VisibleTo = v ?? "public")"
+                                    Placeholder="Select audience" />
+                </div>
+                <div class="ee-field full">
+                    <label for="rec-message">Message</label>
+                    <SfTextArea TValue="string"
+                                Placeholder="Write your recognition message"
+                                Rows="2"
+                                Value="@_form.Message"
+                                ValueChanged="@(v => _form.Message = v ?? string.Empty)" />
+                </div>
+                @if (_formError is not null)
+                {
+                    <div class="ee-field full"><span class="ee-field-error" role="alert">@_formError</span></div>
+                }
+                <div class="ee-field full ee-form-actions">
+                    <SfButton CssClass="e-primary" Type="Submit" Disabled="@_submitting">
+                        @(_submitting ? "Submitting…" : "Send Recognition")
+                    </SfButton>
+                </div>
+            </form>
+        }
+
+        <div class="ee-card">
+            <h3 class="ee-section-title">Weekly Volume</h3>
+            <div class="ee-weekly-bars">
+                @for (var i = 0; i < _weeklyVolume.Count; i++)
+                {
+                    var v = _weeklyVolume[i];
+                    var height = Math.Max(4, v * 12);
+                    <div class="ee-weekly-bar" title="@($"{v} recognition{(v != 1 ? "s" : "")}")">
+                        <div class="ee-weekly-bar-fill" style="height:@(height)px"></div>
+                        <div class="ee-muted ee-weekly-bar-label">W@(i + 1)</div>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <div class="ee-list">
+            @foreach (var r in _items)
+            {
+                var typeLabel = _typeLabels.GetValueOrDefault(r.Type, r.Type);
+                var visibilityLabel = _visibilityLabels.GetValueOrDefault(r.VisibleTo, r.VisibleTo);
+                <div class="ee-card">
+                    <div class="ee-card-row">
+                        <div>
+                            <strong class="ee-card-title">🎉 @typeLabel</strong>
+                            <div class="ee-muted">
+                                From <strong>@r.FromName</strong> to <strong>@r.ToName</strong>
+                            </div>
+                        </div>
+                        @if (!string.IsNullOrEmpty(r.Value))
+                        {
+                            <span class="ee-badge" style="background:#3B8CDE">@r.Value</span>
+                        }
+                    </div>
+                    <p class="ee-card-body">@r.Message</p>
+                    <div class="ee-card-meta">
+                        <span>📅 @FormatDate(r.CreatedAt)</span>
+                        <span>👁 @visibilityLabel</span>
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+}
+
+@code {
+    private List<Recognition> _items = new();
+    private bool _isLoading = true;
+    private string? _error;
+    private bool _showForm;
+    private string? _formError;
+    private bool _submitting;
+    private RecognitionForm _form = new();
+    private List<int> _weeklyVolume = new();
+
+    private record PeerOption(string Id, string Name);
+
+    private static readonly List<PeerOption> _peers = new()
+    {
+        new("emp_4502", "Marcus Lee"),
+        new("emp_4530", "Priya Nair"),
+        new("emp_4490", "John Williams"),
+        new("emp_4555", "Sofia Garcia"),
+        new("emp_4560", "Liam Becker"),
+    };
+
+    private static readonly string[] _typeOptions = new[]
+    {
+        "peer-shoutout", "milestone", "leadership", "team-win",
+    };
+
+    private static readonly Dictionary<string, string> _typeLabels = new()
+    {
+        { "peer-shoutout", "Peer Shoutout" },
+        { "milestone", "Milestone" },
+        { "leadership", "Leadership" },
+        { "team-win", "Team Win" },
+    };
+
+    private static readonly string[] _visibilityOptions = new[] { "public", "team", "private" };
+    private static readonly Dictionary<string, string> _visibilityLabels = new()
+    {
+        { "public", "Public" },
+        { "team", "Team" },
+        { "private", "Private" },
+    };
+
+    private static readonly string[] _valueOptions = new[]
+    {
+        "", "Innovation", "Customer Focus", "Mentorship", "Tenure", "Growth", "Teamwork", "Integrity",
+    };
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        try
+        {
+            _isLoading = true;
+            _error = null;
+            var data = await EmployeeExperienceService.GetRecognitionsAsync();
+            _items = data.ToList();
+            _weeklyVolume = ComputeWeeklyVolume(_items);
+        }
+        catch (Exception ex)
+        {
+            _error = "Failed to load recognitions";
+            Console.Error.WriteLine(ex);
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private void ToggleForm()
+    {
+        _showForm = !_showForm;
+        if (_showForm)
+        {
+            _form = new RecognitionForm
+            {
+                ToEmployeeId = _peers[0].Id,
+                ToName = _peers[0].Name,
+                Type = "peer-shoutout",
+                Value = _valueOptions[1],
+                VisibleTo = "public",
+            };
+        }
+        _formError = null;
+    }
+
+    private void OnPeerChanged(string? id)
+    {
+        _form.ToEmployeeId = id ?? _peers[0].Id;
+        _form.ToName = _peers.FirstOrDefault(p => p.Id == _form.ToEmployeeId)?.Name ?? string.Empty;
+    }
+
+    private async Task HandleSubmit()
+    {
+        if (string.IsNullOrWhiteSpace(_form.Message))
+        {
+            _formError = "Message is required";
+            return;
+        }
+        _formError = null;
+        _submitting = true;
+        try
+        {
+            await EmployeeExperienceService.CreateRecognitionAsync(new RecognitionInput(
+                ToEmployeeId: _form.ToEmployeeId,
+                ToName: _form.ToName,
+                Type: _form.Type,
+                Message: _form.Message.Trim(),
+                Value: _form.Value,
+                VisibleTo: _form.VisibleTo));
+            _form.Message = string.Empty;
+            _showForm = false;
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            _formError = "Failed to submit recognition";
+            Console.Error.WriteLine(ex);
+        }
+        finally
+        {
+            _submitting = false;
+        }
+    }
+
+    private const int Weeks = 8;
+
+    private static List<int> ComputeWeeklyVolume(IReadOnlyCollection<Recognition> items)
+    {
+        // Distribute deterministically by hashing the id so the chart shows
+        // variance even when recognitions share a createdAt (which is the
+        // case for the seeded showcase data). Then rebalance so every week
+        // has at least 1 item when there is enough data — mirrors the
+        // React port in src/screens/EmployeeExperience/components/
+        // RecognitionSection.tsx.
+        var weeks = new int[Weeks];
+        foreach (var r in items)
+        {
+            weeks[IdHash(r.Id) % Weeks] += 1;
+        }
+
+        if (items.Count >= Weeks)
+        {
+            // Repeatedly move one count from the busiest week into a week
+            // that is still empty, until either all weeks have data or no
+            // week has more than 1 to give.
+            while (true)
+            {
+                var firstEmpty = -1;
+                for (var i = 0; i < weeks.Length; i++)
+                {
+                    if (weeks[i] == 0) { firstEmpty = i; break; }
+                }
+                if (firstEmpty < 0) break;
+
+                var donor = 0;
+                for (var i = 1; i < weeks.Length; i++)
+                {
+                    if (weeks[i] > weeks[donor]) donor = i;
+                }
+                if (weeks[donor] <= 1) break;
+
+                weeks[donor] -= 1;
+                weeks[firstEmpty] += 1;
+            }
+        }
+
+        return weeks.ToList();
+    }
+
+    private static int IdHash(string id)
+    {
+        var hash = 0;
+        for (var j = 0; j < id.Length; j++)
+        {
+            hash = ((hash << 5) - hash + id[j]) | 0;
+        }
+        return Math.Abs(hash);
+    }
+
+    private static string FormatDate(string iso)
+    {
+        if (DateTimeOffset.TryParse(iso, out var dt)) return dt.ToLocalTime().ToString("MMM d, yyyy");
+        return iso;
+    }
+
+    private sealed class RecognitionForm
+    {
+        public string ToEmployeeId { get; set; } = string.Empty;
+        public string ToName { get; set; } = string.Empty;
+        public string Type { get; set; } = "peer-shoutout";
+        public string Message { get; set; } = string.Empty;
+        public string? Value { get; set; }
+        public string VisibleTo { get; set; } = "public";
+    }
+}

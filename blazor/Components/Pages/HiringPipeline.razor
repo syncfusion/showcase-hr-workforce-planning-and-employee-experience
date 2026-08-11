@@ -1,0 +1,619 @@
+@*
+  Port of src/screens/HiringPipeline/index.tsx. Route "/hiring".
+
+  The React screen composes a PageHeader and a CandidatesView. The Blazor
+  port keeps the same composition and ports the candidate view 1:1:
+
+    1. PageHeader (title + subtitle)
+    2. Tab bar (All / New / Screening / Interview / Offer / Hired / Rejected)
+       with per-status counts loaded from the server
+    3. View toggle (List / Kanban) - hidden on xs (xs auto-forces list)
+    4. Source filter (SfDropDownList)
+    5. List view (SfGrid) OR Kanban view (SfKanban)
+    6. SfContextMenu bound to a grid row double-click; the menu offers
+       View Profile / Move Stage / Schedule Interview / Send Message /
+       Reject. View Profile and Send Message are intentionally no-op
+       placeholders, matching the React screen.
+
+  Syncfusion mapping (React -> Blazor):
+    - GridComponent / ColumnsDirective / ColumnDirective / Inject([Page, Group, Sort, Filter])
+        -> <SfGrid TValue="Applicant" DataSource=.. AllowPaging=..>
+              <GridColumns> / <GridColumn Field=.. HeaderText=.. ClipMode=..>
+              column templates (avatar cell, position, status pill, date)
+          </SfGrid>
+    - KanbanComponent / ColumnsDirective / ColumnDirective
+        -> <SfKanban TValue="Applicant" KeyField="Status" DataSource=..
+                    AllowDragAndDrop=..>
+              <KanbanColumns> / <KanbanColumn HeaderText=.. KeyField=..>
+              <KanbanCardSettings HeaderField="FullName">
+                  <Template> the candidate-card markup
+              </KanbanCardSettings>
+          </SfKanban>
+    - ContextMenuComponent -> <SfContextMenu Target="...">
+    - DropDownListComponent -> <SfDropDownList TValue="string" TItem="string" />
+
+  Data:
+    The Blazor app calls IHiringPipelineService.FetchApplicantsAsync and
+    FetchApplicantCountsAsync against the ASP.NET backend. If the call
+    fails (server not running, dev-cert off, etc.) the page falls back to a
+    deterministic in-process sample (SampleCandidates.Generate(124)) so the
+    UI is still usable for design review.
+*@
+
+@page "/hiring"
+@using BlazorWebApp.Components.Models
+@using BlazorWebApp.Components.Shared
+@using BlazorWebApp.Services
+@using Syncfusion.Blazor.Buttons
+@using Syncfusion.Blazor.Navigations
+@inject IHiringPipelineService PipelineService
+@inject BreakpointService Breakpoint
+
+<PageTitle>Hiring Pipeline</PageTitle>
+
+<div class="hiring-pipeline-screen">
+    <PageHeader Title="Hiring Pipeline"
+                Subtitle="Visualize requisition flow and identify bottlenecks" />
+
+    @if (_isLoading)
+    {
+        <LoadingState Variant="LoadingState.VariantKind.Spinner" Height="400px" />
+    }
+    else if (_error is not null)
+    {
+        <ErrorState Message="@_error" OnRetry="Reload" />
+    }
+    else
+    {
+        <div class="candidates-view">
+            <div class="candidates-header" role="region" aria-label="Candidate Pipeline Tabs">
+                <div class="status-tabs" role="tablist">
+                    @foreach (var tab in Tabs)
+                    {
+                        var isActive = _activeTab == tab.Key;
+                        <button type="button"
+                                role="tab"
+                                aria-selected="@isActive"
+                                class="status-tab @(isActive ? "active" : "")"
+                                @onclick="@(() => HandleTabChange(tab.Key))">
+                            <span class="status-tab-label">@tab.Label</span>
+                            <span class="status-tab-count @(isActive ? "active" : "")">@GetTabCount(tab.Key)</span>
+                        </button>
+                    }
+                </div>
+
+                <div class="candidates-actions">
+                    @if (!IsMobile)
+                    {
+                        <div class="view-toggle-inline" role="group" aria-label="View Mode">
+                            <button type="button"
+                                    class="view-toggle-btn @(_viewMode == ViewMode.List ? "active" : "")"
+                                    aria-pressed="@(_viewMode == ViewMode.List)"
+                                    @onclick="@(() => SetViewMode(ViewMode.List))">
+                                <span class="e-icons e-list-unordered" aria-hidden="true"></span> List
+                            </button>
+                            <button type="button"
+                                    class="view-toggle-btn @(_viewMode == ViewMode.Kanban ? "active" : "")"
+                                    aria-pressed="@(_viewMode == ViewMode.Kanban)"
+                                    @onclick="@(() => SetViewMode(ViewMode.Kanban))">
+                                <span class="e-icons e-columns" aria-hidden="true"></span> Kanban
+                            </button>
+                        </div>
+                    }
+
+                    <SfDropDownList TValue="string"
+                                    TItem="string"
+                                    DataSource="@_sourceOptions"
+                                    Placeholder="Filters"
+                                    Width="@(IsCompact ? "100%" : "160px")"
+                                    Value="@_sourceFilter"
+                                    ValueChanged="@(v => _sourceFilter = v)" />
+                </div>
+            </div>
+
+            @if (FilteredCandidates.Count == 0)
+            {
+                <EmptyState Title="No candidates in this stage"
+                            Description="Try switching tabs or clearing filters to see applicants." />
+            }
+            else if (EffectiveViewMode == ViewMode.List)
+            {
+                <div class="candidates-grid @(IsCompact ? "candidates-grid-compact" : "")">
+                    <SfGrid TValue="Applicant"
+                            @ref="_grid"
+                            DataSource="@FilteredCandidates"
+                            AllowPaging="true"
+                            AllowSorting="true"
+                            AllowFiltering="true"
+                            AllowGrouping="true"
+                            PageSize="@(IsCompact ? 5 : 10)"
+                            Height="@(IsCompact ? "auto" : "480px")"
+                            EnableAdaptiveUI="@IsCompact"
+                            RowRenderingMode="@(IsMobile ? RowDirection.Vertical : RowDirection.Horizontal)">
+                        <GridPageSettings PageSize="@(IsCompact ? 5 : 10)" />
+                        <GridFilterSettings Type="Syncfusion.Blazor.Grids.FilterType.FilterBar" />
+                        <GridColumns>
+                            <GridColumn Field=@nameof(Applicant.FullName)
+                                        HeaderText="Full Name"
+                                        Width="@(IsCompact ? "220" : "260")">
+                                <Template>
+                                    @{
+                                        var a = (Applicant)context;
+                                    }
+                                    <div class="candidate-cell">
+                                        <div class="avatar @AvatarClass(a)">
+                                            <span>@DisplayInitials(a)</span>
+                                        </div>
+                                        <div class="candidate-cell-text">
+                                            <div class="candidate-name">@a.FullName</div>
+                                            <div class="candidate-email">@a.Email</div>
+                                        </div>
+                                    </div>
+                                </Template>
+                            </GridColumn>
+                            <GridColumn Field=@nameof(Applicant.Position)
+                                        HeaderText="Position"
+                                        ClipMode="ClipMode.EllipsisWithTooltip"
+                                        Width="@(IsCompact ? "160" : "200")">
+                                <Template>
+                                    @{
+                                        var a = (Applicant)context;
+                                    }
+                                    <div class="position-cell">
+                                        <div class="position-title">@a.Position</div>
+                                        <div class="position-dept">@a.Department.ToUpperInvariant()</div>
+                                    </div>
+                                </Template>
+                            </GridColumn>
+                            <GridColumn Field=@nameof(Applicant.Location)
+                                        HeaderText="Location"
+                                        Width="140"
+                                        Visible="ShowLocation" />
+                            <GridColumn Field=@nameof(Applicant.Status)
+                                        HeaderText="Status"
+                                        Width="@(IsCompact ? "100" : "120")">
+                                <Template>
+                                    @{
+                                        var a = (Applicant)context;
+                                        var statusKey = a.Status;
+                                        var statusLabel = StatusLabel(statusKey);
+                                        var statusTooltip = $"Stage: {statusLabel}";
+                                    }
+                                    <SfChip CssClass="@($"status-pill-chip status-pill-chip--{statusKey}")"
+                                            title="@statusTooltip">
+                                        <ChipItems>
+                                            <ChipItem Text="@statusLabel"
+                                                      CssClass="status-pill-item e-small e-outline">
+                                            </ChipItem>
+                                        </ChipItems>
+                                    </SfChip>
+                                </Template>
+                            </GridColumn>
+                            <GridColumn Field=@nameof(Applicant.Source)
+                                        HeaderText="Source"
+                                        ClipMode="ClipMode.EllipsisWithTooltip"
+                                        Width="110"
+                                        Visible="ShowSource" />
+                            <GridColumn Field=@nameof(Applicant.AppliedAt)
+                                        HeaderText="Date"
+                                        TextAlign="TextAlign.Right"
+                                        Width="@(IsCompact ? "110" : "130")">
+                                <Template>
+                                    @{
+                                        var a = (Applicant)context;
+                                        var parts = FormatRelativeDate(a.AppliedAt);
+                                    }
+                                    <div class="date-cell">
+                                        <div class="date-line1">@parts.line1</div>
+                                        <div class="date-line2">@parts.line2</div>
+                                    </div>
+                                </Template>
+                            </GridColumn>
+                        </GridColumns>
+                        <GridEvents TValue="Applicant"
+                                    OnRecordDoubleClick="OnGridRowDoubleClick" />
+                    </SfGrid>
+
+                    <SfContextMenu @ref="_contextMenu"
+                                   TValue="MenuItem"
+                                   Target=".candidates-grid">
+                        <MenuItems>
+                            <MenuItem Text="View Profile"        IconCss="e-icons e-eye"></MenuItem>
+                            <MenuItem Text="Move Stage"          IconCss="e-icons e-chevron-right"></MenuItem>
+                            <MenuItem Text="Schedule Interview"  IconCss="e-icons e-calendar"></MenuItem>
+                            <MenuItem Text="Send Message"        IconCss="e-icons e-edit"></MenuItem>
+                            <MenuItem Separator="true"></MenuItem>
+                            <MenuItem Text="Reject"              IconCss="e-icons e-close"></MenuItem>
+                        </MenuItems>
+                        <MenuEvents TValue="MenuItem"
+                                    ItemSelected="@OnContextMenuSelected" />
+                    </SfContextMenu>
+                </div>
+            }
+            else
+            {
+                <div class="kanban-container @(IsCompact ? "kanban-container-scroll" : "")">
+                    <SfKanban TValue="Applicant"
+                              ID="candidates-kanban"
+                              DataSource="@FilteredCandidates"
+                              KeyField="Status"
+                              AllowDragAndDrop="true">
+                        <KanbanColumns>
+                            @foreach (var col in KanbanColumns)
+                            {
+                                <KanbanColumn HeaderText="@col.HeaderText"
+                                              KeyField="@(new List<string> { col.Id })" />
+                            }
+                        </KanbanColumns>
+                        <KanbanCardSettings HeaderField="FullName">
+                            <Template>
+                                @{
+                                    var a = (Applicant)context;
+                                }
+                                <div class="candidate-card @(IsCompact ? "candidate-card-compact" : "")">
+                                    <div class="candidate-card-row">
+                                        <div class="avatar avatar-sm @AvatarClass(a)">
+                                            <span>@DisplayInitials(a)</span>
+                                        </div>
+                                        <div class="candidate-card-text">
+                                            <div class="candidate-card-name">@a.FullName</div>
+                                            <div class="candidate-card-position">@a.Position</div>
+                                        </div>
+                                    </div>
+                                    <div class="candidate-card-footer">
+                                        @{
+                                            var statusKey = a.Status;
+                                            var statusLabel = StatusLabel(statusKey);
+                                            var statusTooltip = $"Stage: {statusLabel}";
+                                        }
+                                        <SfChip CssClass="@($"status-pill-chip status-pill-chip--{statusKey}")"
+                                                title="@statusTooltip">
+                                            <ChipItems>
+                                                <ChipItem Text="@statusLabel"
+                                                          CssClass="status-pill-item e-small e-outline">
+                                                </ChipItem>
+                                            </ChipItems>
+                                        </SfChip>
+                                        <span class="candidate-card-source">@a.Source</span>
+                                    </div>
+                                </div>
+                            </Template>
+                        </KanbanCardSettings>
+                        <KanbanEvents TValue="Applicant"
+                                      ActionComplete="OnKanbanActionComplete" />
+                    </SfKanban>
+                </div>
+            }
+
+            @* Mind map — mirrors src/screens/HiringPipeline/CandidatesMindMap.tsx.
+               Placed directly below the candidate list/kanban so the recruiter
+               can flip between the row view and the pipeline-shape view without
+               losing context. Uses the full FilteredCandidates set (root +
+               branches are derived client-side). *@
+            <CandidatesMindMap Candidates="@FilteredCandidates"
+                                IsLoading="@_isLoading" />
+        </div>
+    }
+</div>
+
+@code {
+    private enum ViewMode { List, Kanban }
+
+    private sealed record TabDef(string Key, string Label);
+    private sealed record KanbanColumnDef(string Id, string HeaderText);
+
+    // Tab list and label map mirror the React screen exactly. The keys map
+    // 1:1 to the snake_case lowercase status values the backend serialises.
+    private static readonly TabDef[] Tabs = new[]
+    {
+        new TabDef("all",       "All"),
+        new TabDef("new",       "New"),
+        new TabDef("screening", "Screening"),
+        new TabDef("interview", "Interview"),
+        new TabDef("offer",     "Offer"),
+        new TabDef("hired",     "Hired"),
+        new TabDef("rejected",  "Rejected"),
+    };
+
+    private static readonly Dictionary<string, string> StatusLabels = new()
+    {
+        ["new"]       = "New",
+        ["screening"] = "Screening",
+        ["interview"] = "Interview",
+        ["offer"]     = "Offer",
+        ["hired"]     = "Hired",
+        ["rejected"]  = "Rejected",
+    };
+
+    // Kanban columns match the React screen's KANBAN_COLUMNS, in the same
+    // order. "rejected" is intentionally excluded - rejected cards are
+    // surfaced in the list/All view but not the kanban (matches the React
+    // behaviour).
+    private static readonly KanbanColumnDef[] KanbanColumns = new[]
+    {
+        new KanbanColumnDef("new",       "New"),
+        new KanbanColumnDef("screening", "Screening"),
+        new KanbanColumnDef("interview", "Interview"),
+        new KanbanColumnDef("offer",     "Offer"),
+        new KanbanColumnDef("hired",     "Hired"),
+    };
+
+    private static readonly string[] StatusOrder = new[]
+    {
+        "new", "screening", "interview", "offer", "hired",
+    };
+
+    private IReadOnlyList<Applicant> _candidates = Array.Empty<Applicant>();
+    private ApplicantCounts _counts = new(0, 0, 0, 0, 0, 0, 0);
+    private string _activeTab = "all";
+    private ViewMode _viewMode = ViewMode.List;
+    private string? _sourceFilter;
+    private bool _isLoading = true;
+    private bool _useSampleData;
+    private string? _error;
+
+    private SfGrid<Applicant>? _grid;
+    private SfContextMenu<MenuItem>? _contextMenu;
+    private Applicant? _contextTarget;
+
+    private bool IsCompact => Breakpoint.IsCompact;
+    private bool IsMobile => Breakpoint.IsMobile;
+    private ViewMode EffectiveViewMode => IsMobile ? ViewMode.List : _viewMode;
+    private bool ShowLocation => Breakpoint.IsMediumOrUp;
+    private bool ShowSource => !IsMobile;
+
+    private List<string> _sourceOptions = new() { "" };
+
+    private IReadOnlyList<Applicant> FilteredCandidates
+    {
+        get
+        {
+            if (string.IsNullOrEmpty(_sourceFilter)) return _candidates;
+            return _candidates.Where(c => string.Equals(c.Source, _sourceFilter, StringComparison.OrdinalIgnoreCase)).ToList();
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Reload();
+    }
+
+    private async Task Reload()
+    {
+        try
+        {
+            _isLoading = true;
+            _error = null;
+
+            // Try the backend first; fall back to the deterministic sample
+            // on any failure so the UI is always usable for design review.
+            try
+            {
+                var filters = new ApplicantFilters(
+                    Status: _activeTab,
+                    Page: 1,
+                    PageSize: 124,
+                    Sort: "appliedAt:desc");
+                var page = await PipelineService.FetchApplicantsAsync(filters);
+                _candidates = page.Items;
+                _useSampleData = false;
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"[HiringPipeline] backend fetch failed, using sample: {ex.Message}");
+                _candidates = SampleCandidates.Generate(124).ToList();
+                _useSampleData = true;
+            }
+
+            // Apply the same client-side filter the React screen does.
+            _candidates = _activeTab == "all"
+                ? _candidates
+                : _candidates.Where(c => string.Equals(c.Status, _activeTab, StringComparison.OrdinalIgnoreCase)).ToList();
+
+            // Tab counts come from the server (drives badge totals), but
+            // fall back to a local computation when the backend is offline.
+            try
+            {
+                _counts = await PipelineService.FetchApplicantCountsAsync();
+            }
+            catch
+            {
+                if (_useSampleData)
+                {
+                    // Compute from the *unfiltered* sample so the tab badges
+                    // always reflect the whole funnel, not just the current
+                    // tab's slice.
+                    _counts = SampleCandidates.Count(SampleCandidates.Generate(124));
+                }
+            }
+
+            // Build the source-filter dropdown from the visible items so the
+            // options match what's actually on screen.
+            _sourceOptions = new List<string> { "" }
+                .Concat(_candidates.Select(c => c.Source ?? string.Empty)
+                                   .Where(s => !string.IsNullOrEmpty(s))
+                                   .Distinct(StringComparer.OrdinalIgnoreCase)
+                                   .OrderBy(s => s, StringComparer.OrdinalIgnoreCase))
+                .ToList();
+        }
+        catch (Exception ex)
+        {
+            _error = "Failed to load candidates. Please try again.";
+            Console.Error.WriteLine(ex);
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private int GetTabCount(string key) => key switch
+    {
+        "all"       => _counts.All,
+        "new"       => _counts.New,
+        "screening" => _counts.Screening,
+        "interview" => _counts.Interview,
+        "offer"     => _counts.Offer,
+        "hired"     => _counts.Hired,
+        "rejected"  => _counts.Rejected,
+        _           => 0,
+    };
+
+    private async Task HandleTabChange(string key)
+    {
+        _activeTab = key;
+        await Reload();
+    }
+
+    private void SetViewMode(ViewMode mode)
+    {
+        if (IsMobile) return; // Mobile is list-only.
+        _viewMode = mode;
+    }
+
+    private async Task OnGridRowDoubleClick(RecordDoubleClickEventArgs<Applicant> args)
+    {
+        if (args.RowData is null) return;
+        _contextTarget = args.RowData;
+        // RecordDoubleClickEventArgs in v33.x does not expose the original
+        // mouse coordinates, so we open the menu with the no-arg overload
+        // and let Syncfusion anchor it to the row that was double-clicked.
+        if (_contextMenu is not null)
+        {
+            await _contextMenu.OpenAsync();
+        }
+    }
+
+    private async Task OnContextMenuSelected(MenuEventArgs<MenuItem> args)
+    {
+        if (_contextTarget is null) return;
+        var target = _contextTarget;
+        var text = args.Item.Text ?? string.Empty;
+
+        try
+        {
+            switch (text)
+            {
+                case "View Profile":
+                    // No-op placeholder, matches the React screen.
+                    return;
+                case "Move Stage":
+                {
+                    var idx = Array.IndexOf(StatusOrder, target.Status);
+                    if (idx < 0 || idx >= StatusOrder.Length - 1) return;
+                    var next = StatusOrder[idx + 1];
+                    if (string.Equals(next, target.Status, StringComparison.OrdinalIgnoreCase)) return;
+                    if (!_useSampleData)
+                    {
+                        try { await PipelineService.MoveApplicantStageAsync(target.Id, next); }
+                        catch (Exception ex) { Console.Error.WriteLine(ex); }
+                    }
+                    UpdateLocalCandidateStatus(target.Id, next);
+                    return;
+                }
+                case "Schedule Interview":
+                {
+                    // No-op placeholder, matches the React screen. The
+                    // requisition-level ScheduleInterviewInput type was
+                    // removed when the requisition service methods were
+                    // pruned; this branch stays so the context menu still
+                    // renders all five options.
+                    return;
+                }
+                case "Send Message":
+                    return;
+                case "Reject":
+                {
+                    if (!_useSampleData)
+                    {
+                        try { await PipelineService.RejectApplicantAsync(target.Id); }
+                        catch (Exception ex) { Console.Error.WriteLine(ex); }
+                    }
+                    UpdateLocalCandidateStatus(target.Id, "rejected");
+                    return;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _error = "Action failed. Please try again.";
+            Console.Error.WriteLine(ex);
+        }
+    }
+
+    private void UpdateLocalCandidateStatus(string id, string newStatus)
+    {
+        _candidates = _candidates
+            .Select(c => c.Id == id ? c with { Status = newStatus } : c)
+            .ToList();
+    }
+
+    private async Task OnKanbanActionComplete(Syncfusion.Blazor.Kanban.ActionEventArgs<Applicant> args)
+    {
+        if (args.RequestType != "CardChanged") return;
+        var changed = args.ChangedRecords?.ToList();
+        if (changed is null || changed.Count == 0) return;
+
+        var card = changed[0];
+        if (!_useSampleData)
+        {
+            try
+            {
+                await PipelineService.MoveApplicantStageAsync(card.Id, card.Status);
+            }
+            catch (Exception ex)
+            {
+                _error = "Failed to update candidate stage. Please refresh.";
+                Console.Error.WriteLine(ex);
+            }
+        }
+        UpdateLocalCandidateStatus(card.Id, card.Status);
+    }
+
+    private static string StatusLabel(string status) =>
+        StatusLabels.TryGetValue(status, out var label) ? label : status;
+
+    private static string StatusPillClass(string status) => $"status-{status}";
+
+    // Avatar color: assign a stable gradient per first initial. Falls back
+    // to the brand-600 background if the initial isn't a-z (digits, etc.).
+    private static string AvatarClass(Applicant a)
+    {
+        var ch = (a.Initials ?? a.FullName ?? "?").Trim();
+        if (ch.Length == 0) return "avatar-z";
+        var c = char.ToLowerInvariant(ch[0]);
+        return c >= 'a' && c <= 'z' ? $"avatar-{c}" : "avatar-z";
+    }
+
+    private static string DisplayInitials(Applicant a)
+    {
+        if (!string.IsNullOrWhiteSpace(a.Initials)) return a.Initials!;
+        var parts = (a.FullName ?? string.Empty).Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        return string.Concat(parts.Select(p => p[0])).ToUpperInvariant();
+    }
+
+    private static (string line1, string line2) FormatRelativeDate(string iso)
+    {
+        if (!DateTimeOffset.TryParse(iso, out var date)) return ("-", "-");
+        var now = DateTimeOffset.Now;
+        var sameDay = date.Date == now.Date;
+        var yesterday = now.Date.AddDays(-1);
+        var isYesterday = date.Date == yesterday;
+        var time = date.ToLocalTime().ToString("hh:mm tt").ToUpperInvariant();
+
+        if (sameDay) return ("Today", time);
+        if (isYesterday) return ("Yesterday", time);
+
+        var diffDays = (int)Math.Floor((now - date).TotalDays);
+        string relative;
+        if (diffDays < 7) relative = $"{diffDays}D AGO";
+        else if (diffDays < 30) relative = $"{diffDays / 7}W AGO";
+        else if (diffDays < 365) relative = $"{diffDays / 30} MONTH AGO";
+        else relative = $"{diffDays / 365}Y AGO";
+
+        var dd = date.ToString("dd");
+        var mm = date.ToString("MM");
+        var yyyy = date.Year.ToString();
+        return ($"{dd}/{mm}/{yyyy}", relative);
+    }
+}

@@ -1,0 +1,97 @@
+/* ActionPlanDialog — the "Create Action Plan" modal that lives in
+   the AI Insight card.
+
+   The form fields, labels, chips, and the in-content close button
+   below are all on Blazor-rendered elements inside the Syncfusion
+   <SfDialog> wrapper. The wrapper itself (`.e-dialog`,
+   `.e-dlg-content`) is Syncfusion-rendered, but the last class in
+   every selector here is on a Blazor-rendered node, so plain
+   selectors work — Blazor attaches the scope attribute to the
+   last class and the rule matches. */*
+
+.detail-panel__action-plan-body {
+    position: relative;
+    padding-top: 4px;
+}
+
+.detail-panel__action-plan-close {
+    position: absolute;
+    top: -6px;
+    right: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: transparent;
+    color: var(--color-sf-fg-tertiary);
+    cursor: pointer;
+    line-height: 1;
+    font-size: 20px;
+}
+
+.detail-panel__action-plan-close:hover {
+    background: var(--color-sf-bg-secondary);
+    color: var(--color-sf-fg-primary);
+}
+
+.detail-panel__form {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    padding: 8px 0;
+}
+
+.detail-panel__field-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--color-sf-fg-tertiary);
+    display: block;
+    margin-bottom: 6px;
+}
+
+.detail-panel__input {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid var(--color-sf-border-primary);
+    border-radius: 6px;
+    font-size: 13px;
+    box-sizing: border-box;
+    background: var(--color-sf-bg-primary);
+    color: var(--color-sf-fg-primary);
+    font-family: inherit;
+}
+
+.detail-panel__textarea {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid #e4e7ec;
+    border-radius: 6px;
+    font-size: 13px;
+    resize: vertical;
+    box-sizing: border-box;
+    background: var(--color-sf-bg-primary);
+    color: var(--color-sf-fg-primary);
+    font-family: inherit;
+}
+
+.detail-panel__chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.detail-panel__chip {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    background: var(--color-sf-bg-secondary);
+    border: 1px solid var(--color-sf-border-secondary);
+    border-radius: 1000px;
+    font-size: 12px;
+    cursor: pointer;
+}

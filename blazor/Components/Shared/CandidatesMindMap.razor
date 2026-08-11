@@ -1,0 +1,437 @@
+@*
+  Port of src/screens/HiringPipeline/CandidatesMindMap.tsx.
+
+  A read-only mind map that shows the *shape* of the candidate pipeline:
+  the root "Active Pipeline" branches into the top departments (by active
+  candidate count) and each department branches into its top roles. The
+  Blazor port mirrors the React component 1:1:
+
+    - Same data shape (`MindMapRow`: id / parentId / label / kind /
+      count / activeCount / totalCount / fill)
+    - Same aggregation rules (top-5 departments, top-3 roles each, sort
+      by active count then total)
+    - Same per-node styling (root = navy, department = brand colour, role
+      = near-white with dashed stroke when there are no active
+      candidates)
+    - Same horizontal MindMap layout with left/right branch alternation
+    - Same `Created` callback that calls `FitToPage({ mode: "Page" })`
+      so the role sub-branches aren't cropped on narrow viewports
+
+  Syncfusion mapping (React -> Blazor):
+    - DiagramComponent / Inject([MindMap, DataBinding])
+        -> <SfDiagramComponent>
+              <DataSourceSettings ID="Id" ParentID="ParentId"
+                                  Root="root" DataSource=...>
+              </DataSourceSettings>
+              <Layout Type="LayoutType.MindMap"
+                      Orientation="LayoutOrientation.Horizontal"
+                      HorizontalSpacing="60" VerticalSpacing="24"
+                      GetBranch=@(node => ...)/>
+           </SfDiagramComponent>
+    - getNodeDefaults -> NodeCreating event (IDiagramObject arg)
+    - getConnectorDefaults -> ConnectorCreating event
+    - getBranch -> Layout.GetBranch (Func<IDiagramObject, BranchType>)
+    - created -> SfDiagramComponent.Created (EventCallback<object>)
+
+  Why we bind via DataSourceSettings and don't pre-build Nodes/Connectors:
+  Syncfusion's data-binding walk uses the parent id as a dictionary key
+  when building the tree. If we also pass manual `Nodes` and `Connectors`
+  collections alongside the data source, the two paths can race during
+  the `OnAfterScriptRendered` lifecycle and throw
+  `ArgumentNullException: Value cannot be null. (Parameter 'key')` from
+  `DiagramDataBinding.UpdateFirstLevelNode`. Letting DataSourceSettings
+  own the node/connector generation and using NodeCreating/ConnectorCreating
+  for per-element styling matches Syncfusion's recommended data-binding
+  pattern (see the data-binding.md reference).
+
+  Notes for future readers:
+
+    * The data source is passed in as `IReadOnlyList<Applicant>` (the
+      same model used by the candidate grid), so this component is
+      automatically in sync with the active tab / source filter.
+    * `IsLoading` is honoured by rendering the same LoadingState
+      variant the rest of the screen uses.
+    * The `<SfDiagramComponent>` JS-renders its nodes/connectors, so any
+      rules that target those sub-classes in `CandidatesMindMap.razor.css`
+      must use `:deep()` to cross the Blazor CSS-isolation boundary. The
+      Blazor-rendered wrapper class `.candidates-mindmap` keeps the
+      scope attribute and gates the rules to instances of this
+      component.
+*@
+
+@using BlazorWebApp.Components.Models
+@using Syncfusion.Blazor.Diagram
+@* Aliases avoid cross-package name clashes (TextAlign exists in both
+   Syncfusion.Blazor.Diagram and Syncfusion.Blazor.Grids). *@
+@using DiagramTextAlign = Syncfusion.Blazor.Diagram.TextAlign
+@using DiagramTextWrap = Syncfusion.Blazor.Diagram.TextWrap
+
+<div class="candidates-mindmap">
+    <div class="candidates-mindmap-header">
+        <div class="candidates-mindmap-header-text">
+            <h3 class="candidates-mindmap-title">Pipeline Distribution</h3>
+            <p class="candidates-mindmap-subtitle">
+                Where active candidates concentrate by department and role
+            </p>
+        </div>
+        <div class="candidates-mindmap-legend" aria-hidden="true">
+            <span class="mindmap-legend-item">
+                <span class="mindmap-swatch" style="@($"background:{RootFill}")"></span>
+                Total
+            </span>
+            <span class="mindmap-legend-item">
+                <span class="mindmap-swatch" style="@($"background:{DepartmentFills["Engineering"]}")"></span>
+                Department
+            </span>
+            <span class="mindmap-legend-item">
+                <span class="mindmap-swatch"
+                      style="@($"background:{RoleFill};border:1px solid {RoleStroke}")"></span>
+                Role
+            </span>
+        </div>
+    </div>
+
+    <div class="candidates-mindmap-canvas">
+        @if (IsLoading)
+        {
+            <LoadingState Variant="LoadingState.VariantKind.Spinner" Height="360px" />
+        }
+        else if (_data.Count > 1)
+        {
+            @* Data-source only. Per the Diagram data-binding contract, the
+               root node must have an EMPTY ParentId (not null) — otherwise
+               Syncfusion's internal data-binding walk throws
+               `ArgumentNullException: Value cannot be null. (Parameter 'key')`
+               when it tries to register the root as a dictionary key. We use
+               a separate flat `MindMapRow` model so the field shape matches
+               what DataSourceSettings expects (string, not string?). *@
+            <SfDiagramComponent ID="candidates-mindmap"
+                                @ref="_diagram"
+                                Width="100%"
+                                Height="520px"
+                                Created="OnCreated"
+                                NodeCreating="OnNodeCreating"
+                                ConnectorCreating="OnConnectorCreating">
+                <DataSourceSettings ID="Id"
+                                    ParentID="ParentId"
+                                    Root="root"
+                                    DataSource="@_data" />
+                <Layout Type="LayoutType.MindMap"
+                        Orientation="LayoutOrientation.Horizontal"
+                        HorizontalSpacing="60"
+                        VerticalSpacing="24"
+                        GetBranch="OnGetBranch" />
+            </SfDiagramComponent>
+        }
+        else
+        {
+            <div class="candidates-mindmap-empty" role="status">
+                <p>No pipeline data available yet. Once candidates move through screening, the distribution by department and role will appear here.</p>
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    // ---- Public API ---------------------------------------------------------
+
+    // Nullable on the wire. The previous `IReadOnlyList<Applicant>` (with a
+    // property default of Array.Empty) still got `null` pushed in by the
+    // parameter binder on the first render before the parent assigned a
+    // real list, which caused the original NullReferenceException. We now
+    // null-coalesce at the top of every consumer.
+    [Parameter] public IReadOnlyList<Applicant>? Candidates { get; set; }
+    [Parameter] public bool IsLoading { get; set; }
+
+    // ---- Visual tokens (mirror the React file) -----------------------------
+
+    private const string RootFill = "#1F2A44";
+    private const string RootStroke = "#0F172A";
+    private const string RoleFill = "#F8FAFC";
+    private const string RoleStroke = "#CBD5E1";
+    private const string RoleText = "#0F172A";
+    private const string DefaultDepartmentFill = "#475569";
+    private const int NodeWidth = 180;
+    private const int NodeHeight = 56;
+    private const int DepartmentsLimit = 5;
+    private const int RolesPerDepartment = 3;
+
+    private static readonly Dictionary<string, string> DepartmentFills = new(StringComparer.Ordinal)
+    {
+        ["Engineering"] = "#3B82F6",
+        ["Product"] = "#8B5CF6",
+        ["Design"] = "#EC4899",
+        ["Data"] = "#14B8A6",
+        ["Marketing"] = "#F59E0B",
+        ["Sales"] = "#EF4444",
+        ["Customer Success"] = "#10B981",
+        ["People"] = "#6366F1",
+        ["Finance"] = "#0EA5E9",
+        ["Operations"] = "#64748B",
+        ["Security"] = "#DC2626",
+        ["Platform"] = "#0D9488",
+    };
+
+    // "new" | "screening" | "interview" | "offer" — matches the React file.
+    private static readonly HashSet<string> ActiveStatuses = new(StringComparer.Ordinal)
+    {
+        "new", "screening", "interview", "offer",
+    };
+
+    // ---- Internal state -----------------------------------------------------
+
+    private SfDiagramComponent? _diagram;
+    // Public DTO bound to <DataSourceSettings>. The ParentId is `string` (not
+    // `string?`) and the root explicitly uses `""` because Syncfusion's
+    // data-binding walk uses parent ids as dictionary keys — a null key
+    // throws `ArgumentNullException: Value cannot be null. (Parameter 'key')`
+    // from `Dictionary.Add` inside `DiagramDataBinding.UpdateFirstLevelNode`.
+    private List<MindMapRow> _data = new();
+
+    // ---- Data source row (binds to DataSourceSettings) --------------------
+
+    private sealed class MindMapRow
+    {
+        public string Id { get; set; } = string.Empty;
+        public string ParentId { get; set; } = string.Empty;
+        public string Label { get; set; } = string.Empty;
+        public string Kind { get; set; } = string.Empty;   // "root" | "department" | "role"
+        public int Count { get; set; }
+        public int ActiveCount { get; set; }
+        public int TotalCount { get; set; }
+        public string Fill { get; set; } = string.Empty;
+    }
+
+    // Mutable aggregation buckets. The dicts are eagerly initialised
+    // by the constructor so `bucket.Roles.TryGetValue` is always safe,
+    // regardless of how the bucket is obtained.
+    private sealed class DeptBucket
+    {
+        public int Total;
+        public int Active;
+        public Dictionary<string, RoleBucket> Roles { get; } = new(StringComparer.Ordinal);
+    }
+
+    private sealed class RoleBucket
+    {
+        public int Total;
+        public int Active;
+    }
+
+    // ---- Lifecycle ----------------------------------------------------------
+
+    protected override void OnParametersSet()
+    {
+        // Defensive null guard: the parent can render this component with
+        // a null Candidates before its async load finishes. The original
+        // NRE surfaced from `Enumerable.Count(null)` inside BuildMindMapData.
+        _data = BuildMindMapData(Candidates ?? Array.Empty<Applicant>());
+    }
+
+    // ---- Aggregation (mirrors React's buildMindMapData) ---------------------
+
+    private static List<MindMapRow> BuildMindMapData(IReadOnlyList<Applicant> candidates)
+    {
+        var data = new List<MindMapRow>();
+        var total = candidates.Count;
+        var active = candidates.Count(a => IsActive(a.Status));
+
+        data.Add(new MindMapRow
+        {
+            Id = "root",
+            // Empty string, NOT null — Syncfusion's data-binding walk uses
+            // parent ids as dictionary keys.
+            ParentId = string.Empty,
+            Label = "Active Pipeline",
+            Kind = "root",
+            Count = total,
+            ActiveCount = active,
+            TotalCount = total,
+            Fill = RootFill,
+        });
+
+        if (total == 0) return data;
+
+        // Aggregate by department. Use a named class (NOT an inline tuple)
+        // so the inner `Roles` dictionary is always non-null — a default
+        // inline-value tuple leaves the reference-type field null and the
+        // first iteration blows up with NRE.
+        var byDept = new Dictionary<string, DeptBucket>(StringComparer.Ordinal);
+        foreach (var a in candidates)
+        {
+            if (!byDept.TryGetValue(a.Department, out var bucket))
+            {
+                bucket = new DeptBucket();
+            }
+            bucket.Total += 1;
+            if (IsActive(a.Status)) bucket.Active += 1;
+
+            if (!bucket.Roles.TryGetValue(a.Position, out var roleBucket))
+            {
+                roleBucket = new RoleBucket();
+            }
+            roleBucket.Total += 1;
+            if (IsActive(a.Status)) roleBucket.Active += 1;
+            bucket.Roles[a.Position] = roleBucket;
+            byDept[a.Department] = bucket;
+        }
+
+        // Sort departments by active count (then total) so the most "alive"
+        // pipelines sit closest to the root.
+        var departments = byDept
+            .OrderByDescending(kv => kv.Value.Active)
+            .ThenByDescending(kv => kv.Value.Total)
+            .Take(DepartmentsLimit)
+            .ToList();
+
+        foreach (var (deptName, deptAgg) in departments)
+        {
+            var deptId = $"dept-{Slug(deptName)}";
+            data.Add(new MindMapRow
+            {
+                Id = deptId,
+                ParentId = "root",
+                Label = deptName,
+                Kind = "department",
+                Count = deptAgg.Total,
+                ActiveCount = deptAgg.Active,
+                TotalCount = deptAgg.Total,
+                Fill = DepartmentFills.TryGetValue(deptName, out var fill) ? fill : DefaultDepartmentFill,
+            });
+
+            var roles = deptAgg.Roles
+                .OrderByDescending(kv => kv.Value.Active)
+                .ThenByDescending(kv => kv.Value.Total)
+                .Take(RolesPerDepartment)
+                .ToList();
+
+            foreach (var (roleName, roleAgg) in roles)
+            {
+                var roleId = $"role-{Slug(deptName)}-{Slug(roleName)}";
+                data.Add(new MindMapRow
+                {
+                    Id = roleId,
+                    ParentId = deptId,
+                    Label = roleName,
+                    Kind = "role",
+                    Count = roleAgg.Total,
+                    ActiveCount = roleAgg.Active,
+                    TotalCount = roleAgg.Total,
+                    Fill = RoleFill,
+                });
+            }
+        }
+
+        return data;
+    }
+
+    private static bool IsActive(string? status) =>
+        !string.IsNullOrEmpty(status) && ActiveStatuses.Contains(status);
+
+    private static string Slug(string s) =>
+        new string(s.Select(ch => char.IsLetterOrDigit(ch) ? char.ToLowerInvariant(ch) : '-').ToArray());
+
+    private static string FormatCount(int n) =>
+        n >= 1000
+            ? (n / 1000.0).ToString("0.0", System.Globalization.CultureInfo.InvariantCulture).TrimEnd('0').TrimEnd('.') + "k"
+            : n.ToString(System.Globalization.CultureInfo.InvariantCulture);
+
+    // ---- SfDiagramComponent callbacks (mirrors React getNodeDefaults) ------
+
+    private void OnNodeCreating(IDiagramObject obj)
+    {
+        if (obj is not Node node) return;
+        if (node.ID is null) return;
+
+        // The DataSource binding sets `node.Data` to the originating
+        // MindMapRow. We read from there rather than looking the id up in
+        // `_data` so the styling stays correct even if the diagram is
+        // re-initialised after a parameter change.
+        var datum = node.Data as MindMapRow;
+        if (datum is null) return;
+
+        node.Width = NodeWidth;
+        node.Height = NodeHeight;
+        node.Style = new ShapeStyle
+        {
+            Fill = datum.Fill,
+            StrokeColor = datum.Kind == "root" ? RootStroke
+                        : datum.Kind == "department" ? "#0F172A"
+                        : RoleStroke,
+            StrokeWidth = datum.Kind == "root" ? 2 : 1,
+            StrokeDashArray = datum.Kind == "role" && datum.ActiveCount == 0 ? "3 2" : string.Empty,
+        };
+
+        // Replace the auto-generated annotation with our hand-built one so
+        // the badge / colour / weight match the React file.
+        node.Annotations = new DiagramObjectCollection<ShapeAnnotation>
+        {
+            BuildAnnotation(datum),
+        };
+    }
+
+    private void OnConnectorCreating(IDiagramObject obj)
+    {
+        if (obj is not Connector connector) return;
+        connector.Type = ConnectorSegmentType.Bezier;
+        connector.Style = new ShapeStyle { StrokeColor = "#94A3B8", StrokeWidth = 1.25 };
+        connector.TargetDecorator = new DecoratorSettings { Shape = DecoratorShape.None };
+    }
+
+    private BranchType OnGetBranch(IDiagramObject node)
+    {
+        if (node is not Node n) return BranchType.Right;
+        var datum = (n.Data as MindMapRow) ?? _data.FirstOrDefault(d => d.Id == n.ID);
+        if (datum is null) return BranchType.Right;
+        if (datum.Kind == "root") return BranchType.Root;
+        // Mirror the React implementation: alternate Left/Right based on the
+        // department id's character-code parity so the mind map stays balanced
+        // regardless of how many departments are visible.
+        var parity = datum.Id.Aggregate(0, (acc, ch) => acc + ch) & 1;
+        return parity == 0 ? BranchType.Left : BranchType.Right;
+    }
+
+    private void OnCreated(object _)
+    {
+        // Auto-fit the mind map into the visible area, matching the React
+        // `created` handler that calls `fitToPage({ mode: "Page" })`.
+        // FitMode in Blazor only exposes Both / Height / Width; "Page"
+        // maps to FitMode.Width (matches "fit to page width" behaviour).
+        _diagram?.FitToPage(new FitOptions
+        {
+            Mode = FitMode.Width,
+            Region = DiagramRegion.PageSettings,
+        });
+    }
+
+    // ---- Annotation builder (shared by NodeCreating) ------------------------
+
+    private static ShapeAnnotation BuildAnnotation(MindMapRow datum)
+    {
+        var line2 = datum.Kind == "root"
+            ? $"{FormatCount(datum.ActiveCount)} active · {FormatCount(datum.TotalCount)} total"
+            : datum.Kind == "department"
+                ? $"{FormatCount(datum.ActiveCount)}/{FormatCount(datum.TotalCount)}"
+                : datum.ActiveCount == datum.TotalCount
+                    ? $"{FormatCount(datum.TotalCount)} active"
+                    : $"{FormatCount(datum.ActiveCount)} active · {FormatCount(datum.TotalCount)} total";
+
+        var color = datum.Kind == "role" ? RoleText : "#F8FAFC";
+        var fontSize = datum.Kind == "root" ? 12 : 11;
+        var bold = datum.Kind != "role";
+
+        return new ShapeAnnotation
+        {
+            Content = $"{datum.Label}\n{line2}",
+            Style = new TextStyle
+            {
+                Color = color,
+                FontSize = fontSize,
+                FontFamily = "inherit",
+                Bold = bold,
+                TextWrapping = DiagramTextWrap.Wrap,
+                TextAlign = DiagramTextAlign.Center,
+            },
+        };
+    }
+}

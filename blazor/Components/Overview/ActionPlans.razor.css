@@ -1,0 +1,124 @@
+/* ActionPlans — 3-column card grid with progress bar footer. */
+.action-plans-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 24px;
+}
+
+.action-plan {
+    padding: 0;
+    border-radius: 8px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.action-plan:hover {
+    box-shadow: var(--shadow-md);
+    transform: translateY(-1px);
+}
+
+.action-plan__top {
+    padding: 16px 20px 8px;
+    text-align: center;
+}
+
+.action-plan__category {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--color-sf-fg-quaternary);
+}
+
+.action-plan__badge-wrap {
+    margin-top: 6px;
+}
+
+/* SfChip replacement for the status pill. The .e-chip element is what
+   carries the visual treatment; the inline `style` attribute on the
+   ChipItem (set in ActionPlans.razor) supplies the per-status color so
+   the badge stays in sync with the card's top border + progress bar. */
+.action-plan__badge-chip {
+    display: inline-flex;
+}
+
+.action-plan__badge-chip .e-chip {
+    height: 22px;
+    line-height: 1.4;
+    font-size: 10px;
+    font-weight: 600;
+    padding: 0 8px;
+    border-radius: 1000px;
+    border-width: 1px;
+    border-style: solid;
+    cursor: default;
+}
+
+.action-plan__middle {
+    padding: 0 20px 16px;
+}
+
+.action-plan__title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--color-sf-fg-primary);
+    margin-bottom: 4px;
+}
+
+.action-plan__description {
+    font-size: 12px;
+    color: var(--color-sf-fg-secondary);
+    min-height: 32px;
+}
+
+.action-plan__progress {
+    padding: 12px 20px 16px;
+    margin-top: auto;
+    background-color: var(--color-sf-bg-primary);
+    border-top: 1px solid var(--color-sf-border-tertiary);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+}
+
+.action-plan__progress-bar {
+    flex: 1 1 0;
+    min-width: 0;
+    max-width: 100%;
+    overflow: hidden;
+    display: block;
+}
+
+.action-plan__progress-bar > .e-control,
+.action-plan__progress-bar > .e-progress,
+.action-plan__progress-bar .e-progress {
+    display: block;
+    width: 100% !important;
+    max-width: 100%;
+}
+
+.action-plan__progress-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--color-sf-fg-primary);
+    min-width: 36px;
+    text-align: right;
+    flex: 0 0 auto;
+}
+
+@media (min-width: 769px) and (max-width: 1024px) {
+    .action-plans-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 16px;
+    }
+}
+
+@media (max-width: 768px) {
+    .action-plans-grid {
+        grid-template-columns: 1fr;
+        gap: 16px;
+    }
+}

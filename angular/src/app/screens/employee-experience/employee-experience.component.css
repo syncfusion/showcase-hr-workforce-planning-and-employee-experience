@@ -1,0 +1,324 @@
+/* EmployeeExperience screen styles — mirrors the inline <style> block from
+   src/screens/EmployeeExperience/EmployeeExperience.tsx.
+
+   Modern horizontal tab bar + notification bell + right-side drawer.
+   Strict 8px spacing grid, hairline borders, soft micro-shadows. Inter typography. */
+
+:host { display: block; }
+
+.employee-experience-screen { animation: fadeIn 0.3s ease-in; }
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* =========================================================================
+   Tabs row — pill container with the Syncfusion tab bar + notification bell
+   anchored to the right.
+   ========================================================================= */
+.ee-tabs-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
+  padding: 6px 6px 0 6px;
+  background: var(--color-sf-bg-primary);
+  border: 1px solid var(--color-sf-hairline);
+  border-radius: 12px;
+  box-shadow: var(--shadow-card);
+}
+.ee-tabs-row__tabs {
+  flex: 1;
+  min-width: 0;
+}
+
+/* =========================================================================
+   Syncfusion TabComponent — modern restyle
+   We override Syncfusion's default tab shell to a clean horizontal underline
+   tab bar with brand-color active state.
+   ========================================================================= */
+.ee-modern-tabs.e-tab {
+  background: transparent !important;
+  border: 0 !important;
+}
+.ee-modern-tabs .e-tab-header {
+  background: transparent !important;
+  border: 0 !important;
+  border-bottom: 1px solid var(--color-sf-hairline) !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+.ee-modern-tabs .e-tab-header::before,
+.ee-modern-tabs .e-tab-header::after { display: none !important; }
+
+.ee-modern-tabs .e-toolbar-items { gap: 4px; }
+.ee-modern-tabs .e-toolbar-item { margin: 0 !important; }
+.ee-modern-tabs .e-tab-text { padding: 0 !important; background: transparent !important; }
+
+/* `::ng-deep` is required here because the inner HTML (icon + label spans)
+   is rendered by Syncfusion's TabComponent as raw innerHTML — Angular's
+   `_ngcontent-xxx` attribute selector isn't added to those spans, so the
+   otherwise-scoped rules below wouldn't match. `::ng-deep` pierces
+   Angular's view encapsulation and lets the rule reach the Syncfusion
+   DOM. The parent `.ee-modern-tabs.e-tab` is in the component template
+   (and therefore has the attribute), so the cascade still starts from
+   a class that is owned by this component. */
+.ee-modern-tabs.e-tab {
+  background: transparent !important;
+  border: 0 !important;
+}
+.ee-modern-tabs .e-tab-header {
+  background: transparent !important;
+  border: 0 !important;
+  border-bottom: 1px solid var(--color-sf-hairline) !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+.ee-modern-tabs .e-tab-header::before,
+.ee-modern-tabs .e-tab-header::after { display: none !important; }
+
+.ee-modern-tabs .e-toolbar-items { gap: 4px; }
+.ee-modern-tabs .e-toolbar-item { margin: 0 !important; }
+.ee-modern-tabs .e-tab-text { padding: 0 !important; background: transparent !important; }
+
+.ee-modern-tabs ::ng-deep .ee-modern-tab__inner {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 16px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-sf-fg-tertiary);
+  border-radius: 8px 8px 0 0;
+  position: relative;
+  transition: color 0.15s ease, background-color 0.15s ease;
+  cursor: pointer;
+}
+
+.ee-modern-tabs ::ng-deep .e-toolbar-item:not(.e-active) .ee-modern-tab__inner:hover {
+  color: var(--color-sf-fg-primary);
+  background: var(--color-sf-bg-secondary-subtle);
+}
+.ee-modern-tabs ::ng-deep .e-toolbar-item.e-active .ee-modern-tab__inner {
+  color: var(--color-sf-fg-brand-primary);
+  background: transparent;
+}
+/* Brand-color underline indicator on the active tab — matches React. */
+.ee-modern-tabs ::ng-deep .e-toolbar-item.e-active .ee-modern-tab__inner::after {
+  background: var(--color-sf-brand-600);
+}
+.ee-modern-tabs ::ng-deep .ee-modern-tab__icon {
+  width: 16px;
+  height: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: currentColor;
+  flex-shrink: 0;
+  font-size: 16px;
+  line-height: 1;
+}
+.ee-modern-tabs ::ng-deep .ee-modern-tab__icon svg {
+  width: 16px;
+  height: 16px;
+  color: currentColor;
+  display: block;
+}
+.ee-modern-tabs ::ng-deep .ee-modern-tab__label { white-space: nowrap; }
+
+/* =========================================================================
+   Notification bell — modern chip-style button with an unread badge.
+   ========================================================================= */
+.ee-bell,
+.ee-bell-btn {
+  position: relative;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: var(--color-sf-bg-primary);
+  border: 1px solid var(--color-sf-hairline);
+  color: var(--color-sf-fg-tertiary);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  flex-shrink: 0;
+  margin: 0 4px 4px 0;
+  font-size: 18px;
+  line-height: 1;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease,
+    border-color 0.15s ease,
+    box-shadow 0.15s ease,
+    transform 0.15s ease;
+}
+.ee-bell:hover,
+.ee-bell-btn:hover {
+  background: var(--color-sf-bg-secondary);
+  color: var(--color-sf-fg-primary);
+  border-color: var(--color-sf-border-primary);
+  box-shadow: var(--shadow-card);
+  transform: translateY(-1px);
+}
+.ee-bell:active,
+.ee-bell-btn:active {
+  transform: translateY(0) scale(0.97);
+  box-shadow: none;
+}
+.ee-bell:focus-visible,
+.ee-bell-btn:focus-visible {
+  outline: 2px solid var(--color-sf-border-brand);
+  outline-offset: 2px;
+}
+.ee-bell svg,
+.ee-bell-btn svg { width: 18px; height: 18px; color: currentColor; }
+
+.ee-bell__count,
+.ee-bell-btn__count {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  background: var(--color-sf-error-600);
+  color: #fff;
+  border-radius: 999px;
+  border: 2px solid var(--color-sf-bg-primary);
+  box-sizing: border-box;
+  letter-spacing: 0.02em;
+}
+
+/* =========================================================================
+   Sub-section content card — wraps the active tab content with a soft card
+   surface, gentle entrance animation.
+   ========================================================================= */
+.ee-subsection-content {
+  background: var(--color-sf-bg-primary);
+  border: 1px solid var(--color-sf-hairline);
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: var(--shadow-card);
+  min-height: 320px;
+  animation: ee-fadeInContent 0.25s ease-in;
+}
+@keyframes ee-fadeInContent {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* =========================================================================
+   Drawer + backdrop
+   Custom backdrop sits strictly outside the panel area so clicks/scrolls on
+   the panel UI are not swallowed by the overlay. Layering:
+     - backdrop: z-index 1000
+     - panel:    z-index 1001
+   ========================================================================= */
+.ee-drawer-backdrop {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  right: 420px; /* leave room for the 420px-wide panel */
+  background: var(--color-sf-utility-overlay-bg-color, rgba(0, 0, 0, 0.45));
+  z-index: 1000;
+  pointer-events: auto;
+  animation: ee-fadeIn 0.2s ease;
+}
+.ee-drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: min(420px, 100vw);
+  height: 100vh;
+  background: var(--color-sf-bg-primary);
+  box-shadow: var(--shadow-xl);
+  z-index: 1001;
+  display: flex;
+  flex-direction: column;
+  animation: ee-slideInRight 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.ee-drawer-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--color-sf-border-secondary);
+  flex-shrink: 0;
+}
+.ee-drawer-header .ee-section-title { margin: 0; }
+.ee-drawer-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  padding: 12px;
+  pointer-events: auto;
+}
+
+.ee-section-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--color-sf-fg-primary);
+  margin: 0;
+}
+
+.ee-close-btn {
+  background: transparent;
+  border: none;
+  font-size: 20px;
+  cursor: pointer;
+  line-height: 1;
+  color: var(--color-sf-fg-tertiary);
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+.ee-close-btn:hover { background: var(--color-sf-bg-secondary-hover); }
+
+@keyframes ee-fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes ee-slideInRight {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+
+@media (max-width: 720px) {
+  .ee-tabs-row { flex-direction: column; align-items: stretch; }
+  .ee-bell,
+  .ee-bell-btn { align-self: flex-end; margin-bottom: 8px; }
+}
+@media (max-width: 640px) {
+  .ee-drawer { width: 100vw; }
+  /* On small screens the panel fills the viewport, so there is no
+     outside area to capture. Hide the backdrop entirely; the Escape
+     key and close button remain the only ways to dismiss. */
+  .ee-drawer-backdrop { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .employee-experience-screen,
+  .ee-subsection-content,
+  .ee-bell,
+  .ee-bell-btn,
+  .ee-drawer,
+  .ee-drawer-backdrop {
+    transition: none !important;
+    animation: none !important;
+  }
+  .ee-bell:hover,
+  .ee-bell-btn:hover,
+  .ee-bell:active,
+  .ee-bell-btn:active {
+    transform: none !important;
+    box-shadow: none !important;
+  }
+}

@@ -1,0 +1,46 @@
+﻿@*
+  Port of src/components/Layout.tsx. Two-column layout: Syncfusion Sidebar
+  on the left (200px / 60px docked), main content on the right. Initializes
+  ThemeService and BreakpointService after the first render.
+*@
+
+@inherits LayoutComponentBase
+@inject ThemeService Theme
+@inject BreakpointService Breakpoint
+@implements IAsyncDisposable
+
+<div class="app-layout">
+    <NavMenu />
+    <main class="main-content">
+        <div class="content-container">
+            @Body
+        </div>
+    </main>
+</div>
+
+@code {
+    protected override void OnInitialized()
+    {
+        Theme.Changed += OnThemeChanged;
+        Breakpoint.Changed += OnBreakpointChanged;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await Theme.InitializeAsync();
+            await Breakpoint.InitializeAsync();
+        }
+    }
+
+    private void OnThemeChanged() => InvokeAsync(StateHasChanged);
+    private void OnBreakpointChanged() => InvokeAsync(StateHasChanged);
+
+    public ValueTask DisposeAsync()
+    {
+        Theme.Changed -= OnThemeChanged;
+        Breakpoint.Changed -= OnBreakpointChanged;
+        return ValueTask.CompletedTask;
+    }
+}

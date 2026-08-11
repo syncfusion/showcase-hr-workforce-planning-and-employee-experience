@@ -1,0 +1,177 @@
+:host { display: block; width: 100%; }
+
+.mw-req-grid-wrapper { width: 100%; }
+
+/* --------------------------------------------------------------- Header -- */
+/* Syncfusion's grid renders header cells via JS — the .mw-req-grid class
+   comes from the grid's CssClass and is not Blazor-style scoped, so all
+   rules that target Syncfusion-injected nodes need to live in `::ng-deep`
+   blocks. */
+::ng-deep .mw-req-grid .e-headercell,
+::ng-deep .mw-req-grid .e-headercelldiv {
+  background: #f8fafc !important;
+  color: #475569 !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.5px !important;
+}
+
+::ng-deep .mw-req-grid .e-pager {
+  border-top: 1px solid #f1f5f9 !important;
+  padding: 8px !important;
+}
+
+::ng-deep .mw-req-grid .e-rowcell {
+  vertical-align: middle !important;
+}
+
+/* -------------------------------------------------------- Department cell -- */
+::ng-deep .mw-req-grid .mw-req-dept {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 28px;
+}
+::ng-deep .mw-req-grid .mw-req-dept__avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+  height: 28px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #e0e7ff 0%, #c7d2fe 100%);
+  color: #4338ca;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  flex-shrink: 0;
+}
+::ng-deep .mw-req-grid .mw-req-dept__name {
+  color: #0f172a;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* --------------------------------------------------------- Candidates cell -- */
+::ng-deep .mw-req-grid .mw-req-candidates {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px 3px 7px;
+  border-radius: 999px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+::ng-deep .mw-req-grid .mw-req-candidates__icon {
+  display: inline-flex;
+  align-items: center;
+  opacity: 0.85;
+}
+::ng-deep .mw-req-grid .mw-req-candidates__value {
+  font-size: 13px;
+  font-weight: 700;
+}
+::ng-deep .mw-req-grid .mw-req-candidates--empty {
+  background: #f1f5f9;
+  color: #94a3b8;
+}
+::ng-deep .mw-req-grid .mw-req-candidates--low {
+  background: #fef3c7;
+  color: #92400e;
+}
+::ng-deep .mw-req-grid .mw-req-candidates--mid {
+  background: #dbeafe;
+  color: #1e40af;
+}
+::ng-deep .mw-req-grid .mw-req-candidates--high {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+/* ------------------------------------------------------------- Stage cell -- */
+::ng-deep .mw-req-grid .mw-req-stage {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #334155;
+}
+::ng-deep .mw-req-grid .mw-req-stage__dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #94a3b8;
+  flex-shrink: 0;
+}
+::ng-deep .mw-req-grid .mw-req-stage--screening .mw-req-stage__dot { background: #cbd5e1; }
+::ng-deep .mw-req-grid .mw-req-stage--interview .mw-req-stage__dot { background: #3b82f6; }
+::ng-deep .mw-req-grid .mw-req-stage--final .mw-req-stage__dot {
+  background: #f59e0b;
+  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.18);
+}
+::ng-deep .mw-req-grid .mw-req-stage--offer .mw-req-stage__dot {
+  background: #10b981;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.18);
+}
+::ng-deep .mw-req-grid .mw-req-stage--filled .mw-req-stage__dot {
+  background: #6366f1;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.18);
+}
+
+/* --------------------------------------------------------- Time open cell -- */
+::ng-deep .mw-req-grid .mw-req-time {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #475569;
+  font-size: 12px;
+  font-weight: 500;
+}
+::ng-deep .mw-req-grid .mw-req-time__icon {
+  display: inline-flex;
+  align-items: center;
+  color: #94a3b8;
+}
+::ng-deep .mw-req-grid .mw-req-time__value {
+  font-variant-numeric: tabular-nums;
+}
+
+/* --------------------------------------------------------------- Toolbar -- */
+::ng-deep .mw-req-grid .e-toolbar .e-tbar-btn-text {
+  display: none;
+}
+
+/* --------------------------------------------------------- Details button -- */
+::ng-deep .mw-req-grid .mw-req-details-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border: 1px solid #c7d2fe;
+  background: #eef2ff;
+  color: #4338ca;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: none;
+  cursor: pointer;
+  transition: background 120ms ease, border-color 120ms ease, transform 80ms ease;
+}
+::ng-deep .mw-req-grid .mw-req-details-btn:hover {
+  background: #e0e7ff;
+  border-color: #a5b4fc;
+}
+::ng-deep .mw-req-grid .mw-req-details-btn:active {
+  transform: translateY(1px);
+}
+::ng-deep .mw-req-grid .mw-req-details-btn:focus-visible {
+  outline: 2px solid #6366f1;
+  outline-offset: 2px;
+}

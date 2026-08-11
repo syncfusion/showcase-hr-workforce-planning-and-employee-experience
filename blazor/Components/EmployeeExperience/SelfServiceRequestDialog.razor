@@ -1,0 +1,149 @@
+@*
+  Port of src/screens/EmployeeExperience/components/SelfServiceRequestDialog.tsx.
+
+  Modal dialog for submitting a new self-service request. Mirrors the
+  parent-controlled Visible/OnClose/OnSubmitted contract used by the
+  sibling ReportIssueDialog and DelayConcernDialog so the SelfService
+  section header CTA can open this dialog in lock-step with the React
+  version. Posts through IEmployeeExperienceService.CreateSelfServiceRequestAsync
+  on submit, then asks the parent to reload the table.
+*@
+
+@inject IEmployeeExperienceService EmployeeExperienceService
+
+<SfDialog Width="560px"
+          IsModal="true"
+          ShowCloseIcon="true"
+          Visible="@Visible"
+          Header="New self-service request"
+          CloseOnEscape="true"
+          OnOverlayClick="HandleCancel"
+          CssClass="ee-dialog">
+    <DialogTemplates>
+        <Content>
+            <div class="ee-form">
+                <div class="ee-field">
+                    <label>Type</label>
+                    <SfDropDownList TValue="string" TItem="TypeOption"
+                                    DataSource="@_typeOptions"
+                                    Value="@_form.Type"
+                                    ValueChanged="@(v => _form.Type = v ?? "other")">
+                        <DropDownListFieldSettings Text="Label" Value="Value" />
+                    </SfDropDownList>
+                </div>
+                <div class="ee-field">
+                    <label>Priority</label>
+                    <SfDropDownList TValue="string" TItem="PriorityOption"
+                                    DataSource="@_priorityOptions"
+                                    Value="@_form.Priority"
+                                    ValueChanged="@(v => _form.Priority = v ?? "medium")">
+                        <DropDownListFieldSettings Text="Label" Value="Value" />
+                    </SfDropDownList>
+                </div>
+                <div class="ee-field full">
+                    <label>Subject</label>
+                    <SfTextBox TValue="string"
+                               Placeholder="Subject"
+                               Value="@_form.Subject"
+                               ValueChanged="@(v => _form.Subject = v ?? string.Empty)" />
+                </div>
+                <div class="ee-field full">
+                    <label>Details</label>
+                    <SfTextArea TValue="string"
+                                Placeholder="Details"
+                                Rows="3"
+                                Value="@_form.Details"
+                                ValueChanged="@(v => _form.Details = v ?? string.Empty)" />
+                </div>
+                @if (_error is not null)
+                {
+                    <span class="ee-field-error">@_error</span>
+                }
+            </div>
+        </Content>
+    </DialogTemplates>
+    <DialogButtons>
+        <DialogButton Content="Cancel" CssClass="e-secondary" OnClick="HandleCancel" />
+        <DialogButton Content="@(_submitting ? "Submitting…" : "Submit Request")"
+                      CssClass="e-primary"
+                      IsPrimary="true"
+                      Disabled="@_submitting"
+                      OnClick="HandleSubmitAsync" />
+    </DialogButtons>
+</SfDialog>
+
+@code {
+    [Parameter, EditorRequired] public bool Visible { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+    [Parameter] public EventCallback OnSubmitted { get; set; }
+
+    private record TypeOption(string Value, string Label);
+    private record PriorityOption(string Value, string Label);
+
+    private static readonly TypeOption[] _typeOptions = new[]
+    {
+        new TypeOption("address-change", "Address Change"),
+        new TypeOption("benefits", "Benefits"),
+        new TypeOption("payroll", "Payroll"),
+        new TypeOption("equipment", "Equipment"),
+        new TypeOption("leave-request", "Leave Request"),
+        new TypeOption("other", "Other"),
+    };
+
+    private static readonly PriorityOption[] _priorityOptions = new[]
+    {
+        new PriorityOption("low", "Low"),
+        new PriorityOption("medium", "Medium"),
+        new PriorityOption("high", "High"),
+    };
+
+    private RequestForm _form = new();
+    private string? _error;
+    private bool _submitting;
+
+    private async Task HandleSubmitAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_form.Subject) || string.IsNullOrWhiteSpace(_form.Details))
+        {
+            _error = "Subject and details are required";
+            return;
+        }
+        _error = null;
+        _submitting = true;
+        try
+        {
+            await EmployeeExperienceService.CreateSelfServiceRequestAsync(new SelfServiceRequestInput(
+                Type: _form.Type,
+                Subject: _form.Subject.Trim(),
+                Details: _form.Details.Trim(),
+                Priority: _form.Priority));
+            _form = new RequestForm();
+            await OnSubmitted.InvokeAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = "Failed to submit request";
+            Console.Error.WriteLine(ex);
+        }
+        finally
+        {
+            _submitting = false;
+        }
+    }
+
+    private async Task HandleCancel()
+    {
+        if (_submitting) return;
+        _form = new RequestForm();
+        _error = null;
+        await OnClose.InvokeAsync();
+    }
+
+    private sealed class RequestForm
+    {
+        public string Type { get; set; } = "address-change";
+        public string Subject { get; set; } = string.Empty;
+        public string Details { get; set; } = string.Empty;
+        public string Priority { get; set; } = "medium";
+    }
+}

@@ -1,0 +1,78 @@
+<ejs-dialog
+  #dlg
+  header="⚠ Report an Issue"
+  width="500px"
+  [isModal]="true"
+  [showCloseIcon]="true"
+  [closeOnEscape]="true"
+  [visible]="visible()"
+  [buttons]="footerButtons()"
+  (close)="close()"
+>
+  @if (success()) {
+    <p class="ee-success-msg" role="status">
+      ✅ Issue report submitted. It has been added to the Kanban board.
+    </p>
+  } @else {
+    <div class="ee-form">
+      <div class="ee-field">
+        <label for="issue-category">Category</label>
+        <ejs-dropdownlist
+          id="issue-category"
+          [dataSource]="categoryOptions"
+          [fields]="{ text: 'label', value: 'value' }"
+          [value]="form().category"
+          (change)="onCategoryChange($any($event).value)"
+        ></ejs-dropdownlist>
+      </div>
+      <div class="ee-field">
+        <label for="issue-priority">Priority</label>
+        <ejs-dropdownlist
+          id="issue-priority"
+          [dataSource]="priorityOptions"
+          [fields]="{ text: 'label', value: 'value' }"
+          [value]="form().priority"
+          (change)="onPriorityChange($any($event).value)"
+        ></ejs-dropdownlist>
+      </div>
+      <div class="ee-field full">
+        <label for="issue-subject">Subject</label>
+        <ejs-textbox
+          id="issue-subject"
+          [value]="form().subject"
+          (input)="onSubjectInput($any($event).value)"
+        ></ejs-textbox>
+      </div>
+      <div class="ee-field full">
+        <label for="issue-desc">Description</label>
+        <ejs-textarea
+          id="issue-desc"
+          [value]="form().description"
+          (input)="onDescriptionInput($any($event).value)"
+          [rows]="3"
+        ></ejs-textarea>
+      </div>
+      <div class="ee-field">
+        <label for="issue-url">Page URL (optional)</label>
+        <ejs-textbox
+          id="issue-url"
+          [value]="form().url"
+          (input)="onUrlInput($any($event).value)"
+        ></ejs-textbox>
+      </div>
+      <div class="ee-field">
+        <label for="issue-browser">Browser (optional)</label>
+        <ejs-textbox
+          id="issue-browser"
+          [value]="form().browser"
+          (input)="onBrowserInput($any($event).value)"
+        ></ejs-textbox>
+      </div>
+      @if (error()) {
+        <div class="ee-field full">
+          <span class="error" role="alert">{{ error() }}</span>
+        </div>
+      }
+    </div>
+  }
+</ejs-dialog>

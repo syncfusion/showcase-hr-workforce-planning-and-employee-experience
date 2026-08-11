@@ -1,0 +1,172 @@
+@*
+  Port of src/screens/EmployeeExperience/components/ReportIssueDialog.tsx.
+
+  Modal for submitting an issue report. The parent controls visibility
+  via the `Visible` two-way parameter. On successful submit, this component
+  fires `OnSubmitted` (parent closes the dialog) and the parent also passes
+  `OnClose` for cancel/escape/overlay.
+*@
+
+@inject IEmployeeExperienceService EmployeeExperienceService
+
+<SfDialog Width="560px"
+          IsModal="true"
+          ShowCloseIcon="true"
+          Visible="@Visible"
+          Header="Report an issue"
+          CloseOnEscape="true"
+          OnOverlayClick="HandleCancel"
+          CssClass="ee-dialog">
+    <DialogTemplates>
+        <Content>
+            <div class="ee-form">
+                <div class="ee-field full">
+                    <label>Category *</label>
+                    <SfDropDownList TValue="string" TItem="CategoryOption"
+                                    DataSource="@_categories"
+                                    Value="@_form.Category"
+                                    ValueChanged="@(v => _form.Category = v ?? "other")">
+                        <DropDownListFieldSettings Text="Label" Value="Value" />
+                    </SfDropDownList>
+                </div>
+                <div class="ee-field full">
+                    <label>Subject *</label>
+                    <SfTextBox TValue="string"
+                               Placeholder="Short summary of the issue"
+                               Value="@_form.Subject"
+                               ValueChanged="@(v => _form.Subject = v ?? string.Empty)" />
+                </div>
+                <div class="ee-field full">
+                    <label>Description *</label>
+                    <SfTextArea TValue="string"
+                                Placeholder="Steps to reproduce, expected vs actual, etc."
+                                Rows="4"
+                                Value="@_form.Details"
+                                ValueChanged="@(v => _form.Details = v ?? string.Empty)" />
+                </div>
+                <div class="ee-field">
+                    <label>URL (optional)</label>
+                    <SfTextBox TValue="string"
+                               Placeholder="Page where the issue occurred"
+                               Value="@_form.Url"
+                               ValueChanged="@(v => _form.Url = v ?? string.Empty)" />
+                </div>
+                <div class="ee-field">
+                    <label>Browser (optional)</label>
+                    <SfTextBox TValue="string"
+                               Placeholder="e.g. Chrome 124 / macOS"
+                               Value="@_form.Browser"
+                               ValueChanged="@(v => _form.Browser = v ?? string.Empty)" />
+                </div>
+                <div class="ee-field full">
+                    <label>Priority (optional)</label>
+                    <SfDropDownList TValue="string" TItem="PriorityOption"
+                                    DataSource="@_priorities"
+                                    Value="@_form.Priority"
+                                    ValueChanged="@(v => _form.Priority = v ?? string.Empty)"
+                                    Placeholder="Select priority">
+                        <DropDownListFieldSettings Text="Label" Value="Value" />
+                    </SfDropDownList>
+                </div>
+            </div>
+            @if (_error is not null)
+            {
+                <span class="ee-field-error">@_error</span>
+            }
+        </Content>
+    </DialogTemplates>
+    <DialogButtons>
+        <DialogButton Content="Cancel" CssClass="e-secondary" OnClick="HandleCancel" />
+        <DialogButton Content="@(_submitting ? "Submitting…" : "Submit Issue")"
+                      CssClass="e-primary"
+                      IsPrimary="true"
+                      Disabled="@_submitting"
+                      OnClick="HandleSubmitAsync" />
+    </DialogButtons>
+</SfDialog>
+
+@code {
+    [Parameter, EditorRequired] public bool Visible { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+    [Parameter] public EventCallback OnSubmitted { get; set; }
+
+    private record CategoryOption(string Value, string Label);
+    private record PriorityOption(string Value, string Label);
+
+    private static readonly CategoryOption[] _categories = new[]
+    {
+        new CategoryOption("system-rendering", "System Rendering"),
+        new CategoryOption("data-quality", "Data Quality"),
+        new CategoryOption("access", "Access"),
+        new CategoryOption("performance", "Performance"),
+        new CategoryOption("integration", "Integration"),
+        new CategoryOption("other", "Other"),
+    };
+
+    private static readonly PriorityOption[] _priorities = new[]
+    {
+        new PriorityOption("", "(no priority)"),
+        new PriorityOption("low", "Low"),
+        new PriorityOption("medium", "Medium"),
+        new PriorityOption("high", "High"),
+        new PriorityOption("critical", "Critical"),
+    };
+
+    private IssueForm _form = new();
+    private string? _error;
+    private bool _submitting;
+
+    private async Task HandleSubmitAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_form.Subject) || string.IsNullOrWhiteSpace(_form.Details))
+        {
+            _error = "Subject and description are required";
+            return;
+        }
+        _error = null;
+        _submitting = true;
+        try
+        {
+            // Server expects `description` (not `details`), plus optional
+            // `url` and `browser` for triage context. Empty strings collapse
+            // to null so the server doesn't get a blank-string vs null
+            // inconsistency.
+            await EmployeeExperienceService.CreateIssueReportAsync(new IssueReportInput(
+                Category: _form.Category,
+                Subject: _form.Subject.Trim(),
+                Description: _form.Details.Trim(),
+                Url: string.IsNullOrWhiteSpace(_form.Url) ? null : _form.Url.Trim(),
+                Browser: string.IsNullOrWhiteSpace(_form.Browser) ? null : _form.Browser.Trim(),
+                Priority: string.IsNullOrWhiteSpace(_form.Priority) ? null : _form.Priority));
+            _form = new IssueForm();
+            await OnSubmitted.InvokeAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = "Failed to submit issue report";
+            Console.Error.WriteLine(ex);
+        }
+        finally
+        {
+            _submitting = false;
+        }
+    }
+
+    private async Task HandleCancel()
+    {
+        if (_submitting) return;
+        _form = new IssueForm();
+        _error = null;
+        await OnClose.InvokeAsync();
+    }
+
+    private sealed class IssueForm
+    {
+        public string Category { get; set; } = "system-rendering";
+        public string Subject { get; set; } = string.Empty;
+        public string Details { get; set; } = string.Empty;
+        public string Url { get; set; } = string.Empty;
+        public string Browser { get; set; } = string.Empty;
+        public string Priority { get; set; } = string.Empty;
+    }
+}

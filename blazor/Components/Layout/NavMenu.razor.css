@@ -1,0 +1,223 @@
+/* App sidebar wrapper — keeps the SfSidebar in its own column.
+   Reserve the sidebar width (expanded 220px / docked 60px) here so the
+   sibling .main-content in the flex row never sits underneath it.
+   The wrap is a flex column so the SfSidebar's <aside> can stretch to
+   the full height — the nav uses flex:1 and the footer pins to the
+   bottom, exactly like the React app's .e-sidebar layout.
+   On compact viewports (xs/sm) the wrap collapses to 0 width when
+   closed so it doesn't steal space from .main-content; the SfSidebar
+   then renders as an overlay with a backdrop. */
+.app-sidebar-wrap {
+    position: relative;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    width: 220px;
+    min-width: 220px;
+    height: 100vh;
+    transition: width 0.2s ease, min-width 0.2s ease;
+}
+
+.app-sidebar-wrap.docked {
+    width: 60px;
+    min-width: 60px;
+}
+
+/* Compact viewport — when closed, occupy zero space so .main-content
+   gets the full viewport width. The SfSidebar itself floats over the
+   content with a backdrop. */
+.app-sidebar-wrap.compact {
+    width: 0;
+    min-width: 0;
+    overflow: visible;
+    pointer-events: none;
+}
+
+.app-sidebar-wrap.compact .sidebar-toggle {
+    display: none;
+}
+
+/* SfSidebar's <aside> on compact viewports must be absolute so it
+   overlays content instead of pushing it. */
+::deep .app-sidebar-wrap.compact #app-sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    z-index: 1100;
+}
+
+/* Floating hamburger button — only rendered on compact viewports. */
+::deep .sidebar-fab {
+    position: fixed;
+    top: 12px;
+    left: 12px;
+    z-index: 1000;
+    width: 40px;
+    height: 40px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--color-sf-bg-primary);
+    color: var(--color-sf-fg-primary);
+    border: 1px solid var(--color-sf-border-secondary);
+    border-radius: 8px;
+    box-shadow: var(--shadow-md);
+    cursor: pointer;
+    pointer-events: auto;
+    padding: 0;
+    transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+::deep .sidebar-fab:hover {
+    box-shadow: var(--shadow-lg);
+    transform: translateY(-1px);
+}
+
+::deep .sidebar-fab:active {
+    transform: translateY(0) scale(0.97);
+}
+
+/* On medium viewports (md, 769-1024) the sidebar docks to icons; the
+   FAB is hidden because the docked nav is always visible. */
+
+/* SfSidebar renders its <aside> with its own Blazor scope attribute
+   (e.g. _bl_<guid>), so the NavMenu scope attribute (b-XXXX) does NOT
+   match it. Use ::deep to reach across the scope boundary and apply
+   our token-driven background to the actual sidebar element. */
+::deep #app-sidebar {
+    background: var(--color-sf-bg-primary);
+    border-right: 1px solid var(--color-sf-border-secondary);
+    color: var(--color-sf-fg-primary);
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
+}
+
+/* These are slotted in via <ChildContent> so they live inside
+   the SfSidebar's scope — same ::deep treatment is required. */
+::deep .sidebar-header {
+    display: flex;
+    align-items: center;
+    height: 64px;
+    padding: 0 12px;
+    border-bottom: 1px solid var(--color-sf-border-secondary);
+}
+
+::deep .sidebar-title {
+    font-weight: 600;
+    font-size: 18px;
+    color: var(--color-sf-fg-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    flex: 1;
+}
+
+::deep .sidebar-logo {
+    font-weight: 700;
+    font-size: 20px;
+    color: var(--color-sf-fg-primary);
+    width: 100%;
+    text-align: center;
+}
+
+::deep .sidebar-nav {
+    display: flex;
+    flex-direction: column;
+    padding: 12px;
+    gap: 4px;
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+}
+
+::deep .sidebar-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    height: 64px;
+    padding: 0 12px;
+    border-top: 1px solid var(--color-sf-border-secondary);
+}
+
+::deep .sidebar-toggle {
+    flex-shrink: 0;
+    background: transparent;
+    border: 1px solid var(--color-sf-border-secondary);
+    border-radius: 6px;
+    width: 32px;
+    height: 32px;
+    color: var(--color-sf-fg-primary);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+}
+::deep .sidebar-toggle:hover { background: var(--color-sf-bg-secondary); }
+
+
+
+::deep .sidebar-nav-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    height: 40px;
+    padding: 0 10px;
+    border-radius: 6px;
+    color: var(--color-sf-fg-quaternary);
+    text-decoration: none;
+    font-weight: 500;
+    transition: all 0.2s;
+    white-space: nowrap;
+}
+::deep .sidebar-nav-item:hover {
+    background: rgba(var(--color-sf-brand-600-rgb), 0.08);
+    color: var(--color-sf-fg-brand-primary);
+}
+::deep .sidebar-nav-item.active {
+    background: var(--color-sf-bg-brand-solid);
+    color: #fff;
+}
+::deep .sidebar-nav-item.active:hover {
+    background: var(--color-sf-bg-brand-solid-hover);
+    color: #fff;
+}
+
+::deep .sidebar-icon {
+    flex-shrink: 0;
+    width: 20px;
+    height: 20px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: inherit;
+}
+::deep .sidebar-icon svg {
+    width: 20px;
+    height: 20px;
+    stroke: currentColor;
+    fill: none;
+}
+
+::deep .sidebar-label {
+    white-space: nowrap;
+    overflow: hidden;
+}
+
+/* Theme switcher button (hosted inside the sidebar footer) */
+::deep .theme-switcher {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    border-radius: 8px;
+    border: 1px solid var(--color-sf-border-secondary);
+    background: var(--color-sf-bg-primary);
+    color: var(--color-sf-fg-tertiary);
+    cursor: pointer;
+    padding: 0;
+}
+::deep .theme-switcher:hover { background: var(--color-sf-bg-secondary); }

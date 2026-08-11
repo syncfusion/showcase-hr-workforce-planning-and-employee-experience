@@ -1,0 +1,401 @@
+Employee Experience Tab — API Endpoint & Data Model Specification
+=====================================================================
+Base Path: /api/employee-experience
+
+All endpoints below are derived from the existing mock-data service layer
+(`src/services/employeeExperienceService.ts`) and the shared type definitions
+(`src/types/index.ts`).  Use this document to wire up real server endpoints.
+
+-----------------------------------------------------------------------------
+1. SELF-SERVICE REQUESTS
+-----------------------------------------------------------------------------
+GET    /self-service?employeeId={employeeId}
+       → Response: SelfServiceRequest[]
+
+POST   /self-service
+       Body:
+       {
+         "type": "address-change" | "benefits" | "payroll" | "equipment" | "leave-request" | "other",
+         "subject": string,
+         "details": string,
+         "priority": "low" | "medium" | "high"   // optional, default "medium"
+       }
+       → Response: SelfServiceRequest
+
+--- Type: SelfServiceRequest ---
+{
+  "id": string,
+  "employeeId": string,
+  "employeeName": string,
+  "type": "address-change" | "benefits" | "payroll" | "equipment" | "leave-request" | "other",
+  "subject": string,
+  "details": string,
+  "status": "submitted" | "in-review" | "in-progress" | "resolved" | "rejected",
+  "priority": "low" | "medium" | "high",        // optional
+  "assignedTo": string | null,                    // optional
+  "createdAt": string,                          // ISO 8601
+  "updatedAt": string | null,                   // optional
+  "attachments": string[]                       // optional
+}
+
+-----------------------------------------------------------------------------
+2. PULSE SURVEYS
+-----------------------------------------------------------------------------
+GET    /pulse-surveys
+       → Response: PulseSurvey[]
+
+--- Type: ThemeSentiment (shared) ---
+{
+  "theme": string,
+  "sentiment": number,    // -100 to 100
+  "department": string
+}
+
+--- Type: PulseSurvey ---
+{
+  "id": string,
+  "campaignId": string | null,                    // optional
+  "title": string,
+  "status": "draft" | "active" | "closed",
+  "cadence": "one-time" | "weekly" | "monthly" | "quarterly",  // optional
+  "questionRefs": string[],
+  "responseRate": number,
+  "totalResponses": number,
+  "openAt": string,                             // ISO 8601
+  "closeAt": string | null,                     // optional
+  "themes": ThemeSentiment[]
+}
+
+-----------------------------------------------------------------------------
+3. PULSE RESPONSES
+-----------------------------------------------------------------------------
+GET    /pulse-responses?pulseSurveyId={pulseSurveyId}
+       → Response: PulseResponse[]
+
+POST   /pulse-responses
+       Body:
+       {
+         "pulseSurveyId": string,
+         "sentiment": number,        // raw score, e.g. -100..100 or 1..5 depending on UI
+         "comment": string | null    // optional
+       }
+       → Response: PulseResponse
+       Side effect: increment parent PulseSurvey.responseRate & totalResponses
+
+--- Type: PulseResponse ---
+{
+  "id": string,
+  "pulseSurveyId": string,
+  "employeeId": string | null,      // null for anonymous responses
+  "department": string,             // optional
+  "sentiment": number,
+  "submittedAt": string,            // ISO 8601
+  "comment": string | null          // optional
+}
+
+-----------------------------------------------------------------------------
+4. RECOGNITIONS
+-----------------------------------------------------------------------------
+GET    /recognitions
+       → Response: Recognition[]
+       (Optionally filter with ?toEmployeeId={id} or ?fromEmployeeId={id})
+
+POST   /recognitions
+       Body:
+       {
+         "toEmployeeId": string,
+         "toName": string,
+         "type": "peer-shoutout" | "milestone" | "leadership" | "team-win",
+         "message": string,
+         "value": string | null,          // optional badge / value label
+         "visibleTo": "public" | "team" | "private"
+       }
+       → Response: Recognition
+
+--- Type: Recognition ---
+{
+  "id": string,
+  "fromEmployeeId": string,
+  "fromName": string,
+  "toEmployeeId": string,
+  "toName": string,
+  "type": "peer-shoutout" | "milestone" | "leadership" | "team-win",
+  "message": string,
+  "value": string | null,           // optional
+  "createdAt": string,              // ISO 8601
+  "visibleTo": "public" | "team" | "private"
+}
+
+-----------------------------------------------------------------------------
+5. CAREER DEVELOPMENT PLANS
+-----------------------------------------------------------------------------
+GET    /career-plans?employeeId={employeeId}
+       → Response: CareerDevelopmentPlan[]
+
+PATCH  /career-plans/{planId}/milestones/{milestoneId}
+       Body:
+       {
+         "status": "not-started" | "in-progress" | "completed" | "blocked"
+       }
+       → Response: CareerDevelopmentPlan   // full plan with recalculated status
+
+--- Type: CareerMilestone ---
+{
+  "id": string,
+  "planId": string,
+  "title": string,
+  "targetDate": string,           // yyyy-mm-dd
+  "status": "not-started" | "in-progress" | "completed" | "blocked",
+  "evidenceLink": string | null     // optional
+}
+
+--- Type: CareerDevelopmentPlan ---
+{
+  "id": string,
+  "employeeId": string,
+  "employeeName": string,
+  "managerId": string,
+  "currentRole": string,
+  "targetRole": string | null,      // optional
+  "horizon": "6-months" | "12-months" | "24-months",
+  "status": "draft" | "on-track" | "at-risk" | "completed" | "stalled",
+  "milestones": CareerMilestone[],
+  "lastReviewedAt": string | null   // optional, ISO 8601
+}
+
+Server-side recalculation rules (from current client logic):
+  • If ALL milestones "completed" → plan.status = "completed"
+  • If ANY milestone "blocked"     → plan.status = "stalled"
+  • If ANY milestone "in-progress" → plan.status = "on-track"
+  • Otherwise                      → plan.status stays as-is or "draft"
+
+-----------------------------------------------------------------------------
+6. LEARNING RECOMMENDATIONS
+-----------------------------------------------------------------------------
+GET    /learning-recommendations?employeeId={employeeId}
+       → Response: LearningRecommendation[]
+
+PATCH  /learning-recommendations/{id}
+       Body:
+       {
+         "status": "suggested" | "saved" | "in-progress" | "completed" | "dismissed"
+       }
+       → Response: LearningRecommendation
+
+--- Type: LearningRecommendation ---
+{
+  "id": string,
+  "planId": string | null,          // optional, links to CareerDevelopmentPlan
+  "employeeId": string,
+  "title": string,
+  "provider": string | null,         // optional
+  "format": "course" | "article" | "video" | "certification" | "mentoring" | "project",
+  "skillTag": string | null,         // optional
+  "reason": string | null,          // optional
+  "matchScore": number | null,      // optional, 0.0 – 1.0
+  "estHours": number | null,        // optional
+  "status": "suggested" | "saved" | "in-progress" | "completed" | "dismissed",
+  "suggestedAt": string             // ISO 8601
+}
+
+-----------------------------------------------------------------------------
+7. ISSUE REPORTS
+-----------------------------------------------------------------------------
+GET    /issues?reportedBy={employeeId}
+       → Response: IssueReport[]
+
+POST   /issues
+       Body:
+       {
+         "category": "system-rendering" | "data-quality" | "access" | "performance" | "integration" | "other",
+         "subject": string,
+         "description": string,
+         "url": string | null,        // optional
+         "browser": string | null,     // optional
+         "priority": "low" | "medium" | "high" | "critical"   // optional, default "medium"
+       }
+       → Response: IssueReport
+       Side effect: auto-generate a KanbanItem in "backlog"
+
+--- Type: IssueReport ---
+{
+  "id": string,
+  "reportedBy": string,
+  "reportedByName": string,
+  "category": "system-rendering" | "data-quality" | "access" | "performance" | "integration" | "other",
+  "subject": string,
+  "description": string,
+  "url": string | null,             // optional
+  "browser": string | null,          // optional
+  "attachments": string[],          // optional
+  "status": "submitted" | "acknowledged" | "in-progress" | "resolved" | "wont-fix",
+  "priority": "low" | "medium" | "high" | "critical",  // optional
+  "assignedTo": string | null,       // optional
+  "createdAt": string,              // ISO 8601
+  "resolvedAt": string | null        // optional
+}
+
+-----------------------------------------------------------------------------
+8. DELAY CONCERNS
+-----------------------------------------------------------------------------
+GET    /delays?raisedBy={employeeId}
+       → Response: DelayConcern[]
+
+POST   /delays
+       Body:
+       {
+         "relatedEntityType": "self-service" | "requisition" | "approval" | "payroll" | "benefits" | "other",
+         "relatedEntityId": string | null,     // optional
+         "subject": string,
+         "details": string,
+         "daysWaiting": number,
+         "expectedSlackDays": number | null,   // optional
+         "severity": "low" | "medium" | "high"   // optional, default "medium"
+       }
+       → Response: DelayConcern
+       Side effect: auto-generate a KanbanItem in "backlog"
+
+--- Type: DelayConcern ---
+{
+  "id": string,
+  "raisedBy": string,
+  "raisedByName": string,
+  "relatedEntityType": "self-service" | "requisition" | "approval" | "payroll" | "benefits" | "other",
+  "relatedEntityId": string | null,  // optional
+  "subject": string,
+  "details": string,
+  "daysWaiting": number,
+  "expectedSlackDays": number | null,  // optional
+  "status": "open" | "acknowledged" | "resolved" | "rejected",
+  "severity": "low" | "medium" | "high",   // optional
+  "createdAt": string                 // ISO 8601
+}
+
+-----------------------------------------------------------------------------
+9. KANBAN ITEMS
+-----------------------------------------------------------------------------
+GET    /kanban
+       → Response: KanbanItem[]
+       (Filter server-side or client-side by sourceType / assigneeId as needed)
+
+PATCH  /kanban/{id}/lane
+       Body:
+       {
+         "lane": "backlog" | "in-progress" | "in-review" | "done"
+       }
+       → Response: KanbanItem
+       Side effect: sync underlying entity status (see mapping below)
+
+--- Type: KanbanItem ---
+{
+  "id": string,
+  "sourceType": "self-service" | "pulse-feedback" | "recognition" | "career" | "learning" | "issue" | "delay",
+  "sourceId": string,               // ID of the originating entity
+  "title": string,
+  "lane": "backlog" | "in-progress" | "in-review" | "done",
+  "assigneeId": string | null,       // optional
+  "priority": "low" | "medium" | "high" | "critical",  // optional
+  "dueDate": string | null,            // optional, yyyy-mm-dd
+  "tags": string[],                   // optional
+  "updatedAt": string                 // ISO 8601
+}
+
+Status sync mapping (lane → underlying entity status):
+  • backlog      → "submitted"
+  • in-progress  → "in-progress"
+  • in-review    → "in-review"
+  • done         → "resolved"
+
+For SelfServiceRequest the status field accepts:
+  "submitted" | "in-review" | "in-progress" | "resolved" | "rejected"
+
+For IssueReport the status field accepts:
+  "submitted" | "acknowledged" | "in-progress" | "resolved" | "wont-fix"
+  (When lane = done, also set resolvedAt = now)
+
+For DelayConcern the status field accepts:
+  "open" | "acknowledged" | "resolved" | "rejected"
+
+-----------------------------------------------------------------------------
+10. NOTIFICATIONS
+-----------------------------------------------------------------------------
+GET    /notifications?userId={userId}
+       → Response: NotificationItem[]
+
+PATCH  /notifications/{id}/read
+       → Response: 204 No Content (or empty object)
+
+PATCH  /notifications/read-all?userId={userId}
+       → Response: 204 No Content (or empty object)
+
+--- Type: NotificationItem ---
+{
+  "id": string,
+  "userId": string,                 // recipient employee id
+  "type": "chat" | "system" | "mention" | "status-update",
+  "title": string,
+  "body": string | null,             // optional
+  "relatedEntityType": string | null, // optional: 'self-service', 'issue', 'delay', etc.
+  "relatedEntityId": string | null,   // optional
+  "read": boolean,
+  "createdAt": string                // ISO 8601
+}
+
+-----------------------------------------------------------------------------
+11. CHAT MESSAGES
+-----------------------------------------------------------------------------
+GET    /chat-messages?threadId={threadId}
+       → Response: ChatMessage[]
+
+POST   /chat-messages
+       Body:
+       {
+         "threadId": string,
+         "body": string,
+         "toId": string | null          // optional
+       }
+       → Response: ChatMessage
+       (fromId / fromName derived from authenticated user on server)
+
+--- Type: ChatMessage ---
+{
+  "id": string,
+  "threadId": string,
+  "fromId": string,
+  "fromName": string,
+  "toId": string | null,             // optional
+  "body": string,
+  "sentAt": string,                  // ISO 8601
+  "attachments": string[]            // optional
+}
+
+-----------------------------------------------------------------------------
+CURRENT USER (showcase hard-coding)
+-----------------------------------------------------------------------------
+The client currently assumes:
+  employeeId = "emp_4521"
+  employeeName = "Ava Thompson"
+  managerId  = "emp_4490"
+
+For a real API, derive the current user from the auth token / session
+instead of passing it in query params for every call.
+
+However, the GET list endpoints above accept an explicit employeeId
+parameter so the same routes can support managers viewing their reports.
+
+-----------------------------------------------------------------------------
+SUMMARY TABLE (quick reference)
+-----------------------------------------------------------------------------
+| Resource                | GET (list)                              | POST (create)                | PATCH (mutate)                                    |
+|-------------------------|-----------------------------------------|------------------------------|---------------------------------------------------|
+| Self-Service            | /self-service?employeeId=               | /self-service                | —                                                 |
+| Pulse Surveys           | /pulse-surveys                          | —                            | —                                                 |
+| Pulse Responses         | /pulse-responses?pulseSurveyId=         | /pulse-responses             | —                                                 |
+| Recognitions            | /recognitions                           | /recognitions                | —                                                 |
+| Career Plans            | /career-plans?employeeId=               | —                            | /career-plans/{pid}/milestones/{mid}              |
+| Learning                | /learning-recommendations?employeeId= | —                            | /learning-recommendations/{id}                    |
+| Issue Reports           | /issues?reportedBy=                     | /issues                      | —                                                 |
+| Delay Concerns          | /delays?raisedBy=                       | /delays                      | —                                                 |
+| Kanban                  | /kanban                                 | —                            | /kanban/{id}/lane                                 |
+| Notifications           | /notifications?userId=                  | —                            | /notifications/{id}/read  & /notifications/read-all |
+| Chat Messages           | /chat-messages?threadId=                | /chat-messages               | —                                                 |

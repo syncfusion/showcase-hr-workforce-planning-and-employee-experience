@@ -1,0 +1,139 @@
+/* CandidatesMindMap — premium styling, ported from the React
+   CandidatesMindMap.tsx. The card surface (border, radius, padding,
+   header, legend) lives on Blazor-rendered DOM and matches directly.
+
+   IMPORTANT — Blazor CSS isolation gotcha:
+   Everything inside the <SfDiagramComponent> — node rectangles,
+   annotation text, connectors — is created by Syncfusion's JS at
+   runtime, so the generated `b-XXX` scope attribute is NOT on those
+   elements. Every rule that targets one of those sub-elements MUST
+   use `:deep()` so the scope is anchored to a Blazor-rendered
+   ancestor (the .candidates-mindmap wrapper) and the trailing
+   Syncfusion class is matched as-is. See the project memory note
+   "blazor-css-isolation-syncfusion.md" for the full explanation. */
+
+.candidates-mindmap {
+    margin-top: 24px;
+    background: var(--color-sf-bg-primary, #ffffff);
+    border: 1px solid var(--color-sf-border-secondary, #e5e7eb);
+    border-radius: 12px;
+    padding: 20px 20px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    animation: cm-fade-in 0.3s ease-in;
+}
+
+@keyframes cm-fade-in {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .candidates-mindmap { animation: none; }
+}
+
+/* ---- Header row ---- */
+.candidates-mindmap-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+.candidates-mindmap-header-text {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+}
+
+.candidates-mindmap-title {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--color-sf-fg-primary, #0f172a);
+}
+
+.candidates-mindmap-subtitle {
+    margin: 0;
+    font-size: 13px;
+    color: var(--color-sf-fg-secondary, #64748b);
+}
+
+.candidates-mindmap-legend {
+    display: inline-flex;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
+    font-size: 12px;
+    color: var(--color-sf-fg-secondary, #64748b);
+}
+
+.mindmap-legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+}
+
+.mindmap-swatch {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    border-radius: 4px;
+    flex: 0 0 14px;
+}
+
+/* ---- Canvas ---- */
+.candidates-mindmap-canvas {
+    width: 100%;
+    border-radius: 8px;
+    overflow: hidden;
+    background: var(--color-sf-bg-primary, #ffffff);
+}
+
+/* ---- Syncfusion-injected nodes ----
+   Every selector below targets DOM created by the SfDiagramComponent
+   JavaScript at runtime. The leading `.candidates-mindmap` is on a
+   Blazor-rendered element, so it carries the scope attribute; the
+   trailing class inside `:deep()` is matched as-is against the JS
+   canvas. */
+::deep .candidates-mindmap .e-diagram .e-node {
+    filter: drop-shadow(0 1px 1px rgba(15, 23, 42, 0.12));
+}
+
+::deep .candidates-mindmap .e-diagram .e-node:hover {
+    filter: drop-shadow(0 2px 4px rgba(15, 23, 42, 0.18));
+    cursor: default;
+}
+
+::deep .candidates-mindmap .e-diagram text {
+    user-select: none;
+}
+
+::deep .candidates-mindmap .e-diagram .e-diagram-connector {
+    pointer-events: none;
+}
+
+/* ---- Responsive ---- */
+@media (max-width: 640px) {
+    .candidates-mindmap {
+        margin-top: 16px;
+        padding: 16px 12px 8px;
+    }
+
+    .candidates-mindmap-legend {
+        font-size: 11px;
+        gap: 8px;
+    }
+
+    .candidates-mindmap-title {
+        font-size: 15px;
+    }
+
+    .candidates-mindmap-subtitle {
+        font-size: 12px;
+    }
+}

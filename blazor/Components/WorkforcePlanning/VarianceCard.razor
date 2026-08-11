@@ -1,0 +1,45 @@
+@*
+  VarianceCard — single variance metric for the Scenario Comparison panel.
+  Port of the inline VarianceCard component in src/screens/WorkforcePlanning/index.tsx.
+
+  Wraps the contents in <SfCard> so the card participates in the standard
+  Syncfusion card chrome. The `wp-variance-card` class is passed via
+  CssClass, which lands on a Syncfusion-rendered <div class="e-card
+  wp-variance-card">. The inner <div class="wp-variance-card"> holds
+  the actual visible chrome (border, radius, padding, hover lift) on a
+  Blazor-rendered element so the scoped CSS rules in
+  VarianceCard.razor.css can match it. The SfCard wrapper is styled
+  transparent — see VarianceCard.razor.css for the rationale. This
+  mirrors the KpiCard pattern.
+*@
+
+@using Syncfusion.Blazor.Cards
+
+<SfCard CssClass="wp-variance-card">
+    <div class="wp-variance-card">
+        <div class="wp-variance-label">@Label</div>
+        <div class="wp-variance-value @TrendClass">@Value</div>
+        <div class="wp-variance-meta">
+            <span>Baseline <strong>@Format(Baseline)</strong>@(IsCurrency ? "" : " " + Unit)</span>
+            <span>Selected <strong>@Format(Selected)</strong>@(IsCurrency ? "" : " " + Unit)</span>
+        </div>
+    </div>
+</SfCard>
+
+@code {
+    [Parameter, EditorRequired] public string Label { get; set; } = "";
+    [Parameter, EditorRequired] public string Value { get; set; } = "";
+    [Parameter, EditorRequired] public double Baseline { get; set; }
+    [Parameter, EditorRequired] public double Selected { get; set; }
+    [Parameter] public string Unit { get; set; } = "";
+    [Parameter] public bool IsCurrency { get; set; }
+
+    private string TrendClass => Selected > Baseline ? "positive"
+        : Selected < Baseline ? "negative"
+        : "neutral";
+
+    private string Format(double n) =>
+        IsCurrency
+            ? $"${(n / 1_000_000.0).ToString("0.00")}M"
+            : n.ToString("N0");
+}

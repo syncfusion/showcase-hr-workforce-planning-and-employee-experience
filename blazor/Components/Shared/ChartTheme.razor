@@ -1,0 +1,71 @@
+@*
+  Helper that maps the current ThemeService.ResolvedTheme to a Syncfusion
+  chart Theme enum value and cascades it to descendants. Use it as a
+  wrapper around any <SfChart> / <SfAccumulationChart>:
+
+    <ChartTheme>
+      <SfChart Theme="@_chartTheme">...</SfChart>
+    </ChartTheme>
+
+  Combined with the snippet below in @code, the chart swaps between
+  Syncfusion.Blazor.Theme.Tailwind and TailwindDark as the user toggles
+  themes:
+
+    @inject ThemeService ThemeSvc
+    private Syncfusion.Blazor.Theme _chartTheme = Syncfusion.Blazor.Theme.Tailwind;
+    protected override void OnInitialized()
+    {
+        ThemeSvc.Changed += SyncChartTheme;
+        SyncChartTheme();
+    }
+    private void SyncChartTheme()
+    {
+        var next = ThemeSvc.Resolved == ThemeService.ResolvedTheme.Dark
+            ? Syncfusion.Blazor.Theme.TailwindDark
+            : Syncfusion.Blazor.Theme.Tailwind;
+        if (next != _chartTheme) { _chartTheme = next; InvokeAsync(StateHasChanged); }
+    }
+    public void Dispose() => ThemeSvc.Changed -= SyncChartTheme;
+
+  Why this exists: SfChart's Theme prop does NOT auto-react to
+  body.e-dark-mode. It renders the named palette (Tailwind / Bootstrap5 /
+  etc.) and assumes you swap the value at the call site. Without this
+  binding, every chart stays in the light variant even when the rest of
+  the page is in dark mode.
+*@
+
+@inject ThemeService Theme
+
+<CascadingValue Value="@_theme">
+    @ChildContent
+</CascadingValue>
+
+@code {
+    /// <summary>The Syncfusion chart theme to cascade to descendants.</summary>
+    private Syncfusion.Blazor.Theme _theme = Syncfusion.Blazor.Theme.Tailwind;
+
+    /// <summary>Chart subtree that should receive the theme.</summary>
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    protected override void OnInitialized()
+    {
+        Theme.Changed += OnThemeChanged;
+        Sync();
+    }
+
+    private void OnThemeChanged() => Sync();
+
+    private void Sync()
+    {
+        var next = Theme.Resolved == ThemeService.ResolvedTheme.Dark
+            ? Syncfusion.Blazor.Theme.TailwindDark
+            : Syncfusion.Blazor.Theme.Tailwind;
+        if (next != _theme)
+        {
+            _theme = next;
+            InvokeAsync(StateHasChanged);
+        }
+    }
+
+    public void Dispose() => Theme.Changed -= OnThemeChanged;
+}

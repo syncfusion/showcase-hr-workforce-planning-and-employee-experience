@@ -1,0 +1,131 @@
+@if (isLoading()) {
+  <app-loading-state height="300px"></app-loading-state>
+} @else if (error()) {
+  <app-error-state
+    [message]="error()!"
+    [onRetry]="retryFn"
+    (retry)="retry()"
+  ></app-error-state>
+} @else if (items().length === 0 && !showForm()) {
+  <app-empty-state
+    title="No recognitions yet"
+    description="Recognize a peer for a win, milestone, or leadership moment."
+    actionLabel="Give Recognition"
+    [onAction]="openFormFn"
+    (action)="toggleForm()"
+  ></app-empty-state>
+} @else {
+  <div>
+    <div class="ee-section-header">
+      <h3 class="ee-section-title">Recognition Feed</h3>
+      <button type="button" class="e-btn e-primary" (click)="toggleForm()">
+        {{ showForm() ? 'Cancel' : '+ Give Recognition' }}
+      </button>
+    </div>
+
+    @if (showForm()) {
+      <form class="ee-card ee-form" (submit)="handleSubmit($event)" style="margin-bottom: 16px;" aria-label="Give recognition">
+        <div class="ee-field">
+          <label for="rec-to">Recipient</label>
+          <ejs-dropdownlist
+            id="rec-to"
+            [dataSource]="peerOptions"
+            [fields]="{ text: 'text', value: 'value' }"
+            [value]="form().toEmployeeId"
+            (change)="onRecipientChange($any($event).value)"
+            placeholder="Select recipient"
+          ></ejs-dropdownlist>
+        </div>
+        <div class="ee-field">
+          <label for="rec-type">Type</label>
+          <ejs-dropdownlist
+            id="rec-type"
+            [dataSource]="typeValues"
+            [value]="form().type"
+            (change)="onTypeChange($any($event).value)"
+            placeholder="Select type"
+          ></ejs-dropdownlist>
+        </div>
+        <div class="ee-field">
+          <label for="rec-value">Company Value</label>
+          <ejs-dropdownlist
+            id="rec-value"
+            [dataSource]="valueOptions"
+            [value]="form().value ?? ''"
+            (change)="onValueChange($event.value)"
+            placeholder="Select value"
+          ></ejs-dropdownlist>
+        </div>
+        <div class="ee-field">
+          <label for="rec-audience">Audience</label>
+          <ejs-dropdownlist
+            id="rec-audience"
+            [dataSource]="visibilityValues"
+            [value]="form().visibleTo"
+            (change)="onVisibilityChange($any($event).value)"
+            placeholder="Select audience"
+          ></ejs-dropdownlist>
+        </div>
+        <div class="ee-field full">
+          <label for="rec-message">Message</label>
+          <ejs-textarea
+            id="rec-message"
+            [value]="form().message"
+            (input)="onMessageInput($any($event).value)"
+            placeholder="Write your recognition message"
+            [rows]="2"
+          ></ejs-textarea>
+        </div>
+        @if (formError()) {
+          <div class="ee-field full">
+            <span class="error" role="alert">{{ formError() }}</span>
+          </div>
+        }
+        <div class="ee-field full ee-field--actions">
+          <button type="submit" class="e-btn e-primary" [disabled]="submitting()">
+            {{ submitting() ? 'Submitting…' : 'Send Recognition' }}
+          </button>
+        </div>
+      </form>
+    }
+
+    <div class="ee-card" style="margin-bottom: 16px;">
+      <h3 class="ee-section-title">Weekly Volume</h3>
+      <div class="ee-bar-chart">
+        @for (v of weeklyVolume(); track $index; let i = $index) {
+          <div class="ee-bar-chart__col">
+            <div
+              class="ee-bar-chart__bar"
+              [style.height.px]="barHeight(v)"
+              [title]="v + ' recognition' + (v !== 1 ? 's' : '')"
+            ></div>
+            <div class="ee-muted ee-bar-chart__label">W{{ i + 1 }}</div>
+          </div>
+        }
+      </div>
+    </div>
+
+    <div class="ee-list">
+      @for (r of items(); track r.id) {
+        <div class="ee-card">
+          <div class="ee-card__row">
+            <div>
+              <strong class="ee-card__title">🎉 {{ typeLabel(r.type) }}</strong>
+              <div class="ee-muted">
+                From <strong>{{ r.fromName }}</strong> to <strong>{{ r.toName }}</strong>
+              </div>
+            </div>
+            @if (r.value) {
+              <span class="ee-badge" style="background: #3B8CDE;">{{ r.value }}</span>
+            }
+          </div>
+          <p class="ee-card__details--dark">{{ r.message }}</p>
+          <div class="ee-card__meta">
+            <span>📅 {{ formatDate(r.createdAt) }}</span>
+            <span>👁 {{ visibilityLabel(r.visibleTo) }}</span>
+          </div>
+        </div>
+      }
+    </div>
+  </div>
+}

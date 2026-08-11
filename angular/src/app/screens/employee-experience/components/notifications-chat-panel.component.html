@@ -1,0 +1,156 @@
+<div class="ee-ncp">
+  <div class="ee-ncp__tabs" role="tablist" aria-label="Notifications and chat tabs">
+    <button
+      type="button"
+      role="tab"
+      [class.ee-ncp__tab--active]="activeTab() === 'notifications'"
+      [attr.aria-selected]="activeTab() === 'notifications'"
+      class="ee-ncp__tab"
+      (click)="setTab('notifications')"
+    >
+      <span aria-hidden="true">🔔</span>
+      <span>Notifications</span>
+      @if (unreadCount() > 0) {
+        <span class="ee-ncp__count" aria-live="polite">{{ unreadCount() }}</span>
+      }
+    </button>
+    <button
+      type="button"
+      role="tab"
+      [class.ee-ncp__tab--active]="activeTab() === 'chat'"
+      [attr.aria-selected]="activeTab() === 'chat'"
+      class="ee-ncp__tab"
+      (click)="setTab('chat')"
+    >
+      <span aria-hidden="true">💬</span>
+      <span>Chat</span>
+    </button>
+  </div>
+
+  @if (activeTab() === 'notifications') {
+    <div class="ee-ncp__pane" role="tabpanel" aria-label="Notifications">
+      @if (notifLoading()) {
+        <app-loading-state height="120px"></app-loading-state>
+      } @else if (notifError()) {
+        <app-error-state
+          [message]="notifError() ?? ''"
+          [onRetry]="retryNotifications"
+          (retry)="loadNotifications()"
+        ></app-error-state>
+      } @else if (notifications().length === 0) {
+        <app-empty-state
+          title="No notifications"
+          description="Status updates and mentions will appear here."
+        ></app-empty-state>
+      } @else {
+        <div class="ee-ncp__actions">
+          <button type="button" class="ee-ncp__link-btn" (click)="markAllRead()">
+            Mark all read
+          </button>
+        </div>
+        <div class="ee-ncp__list" aria-live="polite">
+          @for (n of notifications(); track n.id) {
+            <div
+              class="ee-ncp__item"
+              [class.ee-ncp__item--unread]="!n.read"
+            >
+              <div class="ee-ncp__item-body">
+                <div class="ee-ncp__item-title">
+                  <span aria-hidden="true">{{ iconFor(n.type) }}</span>
+                  {{ n.title }}
+                </div>
+                @if (n.body) {
+                  <div class="ee-ncp__item-text">{{ n.body }}</div>
+                }
+                <div class="ee-ncp__item-meta">
+                  {{ labelFor(n.type) }} • {{ formatDateTime(n.createdAt) }}
+                </div>
+              </div>
+              @if (!n.read) {
+                <button
+                  type="button"
+                  class="ee-ncp__link-btn"
+                  (click)="markRead(n.id)"
+                >
+                  Mark read
+                </button>
+              }
+            </div>
+          }
+        </div>
+      }
+    </div>
+  } @else {
+    <div class="ee-ncp__pane" role="tabpanel" aria-label="Chat">
+      @if (chatLoading()) {
+        <app-loading-state height="120px"></app-loading-state>
+      } @else if (chatError()) {
+        <app-error-state
+          [message]="chatError() ?? ''"
+          [onRetry]="retryChat"
+          (retry)="loadChat()"
+        ></app-error-state>
+      } @else if (threads().length === 0) {
+        <app-empty-state
+          title="No conversations"
+          description="Start a thread related to a request or issue."
+        ></app-empty-state>
+      } @else {
+        <div class="ee-ncp__thread-list" role="tablist" aria-label="Chat threads">
+          @for (t of threads(); track t.threadId) {
+            <button
+              type="button"
+              role="tab"
+              class="ee-ncp__thread-tab"
+              [class.ee-ncp__thread-tab--active]="activeThreadId() === t.threadId"
+              [attr.aria-selected]="activeThreadId() === t.threadId"
+              [title]="t.threadId"
+              (click)="setActiveThread(t.threadId)"
+            >
+              {{ stripThreadPrefix(t.threadId) }}
+            </button>
+          }
+        </div>
+
+        <div class="ee-ncp__messages" aria-live="polite">
+          @if (activeThread()) {
+            @for (m of activeThread()!.messages; track m.id) {
+              <div
+                class="ee-ncp__msg"
+                [class.ee-ncp__msg--own]="isOwnMessage(m.fromId)"
+              >
+                <div
+                  class="ee-ncp__bubble"
+                  [class.ee-ncp__bubble--own]="isOwnMessage(m.fromId)"
+                >
+                  {{ m.body }}
+                </div>
+                <div class="ee-ncp__msg-meta">
+                  {{ m.fromName }} • {{ formatTime(m.sentAt) }}
+                </div>
+              </div>
+            }
+          }
+        </div>
+
+        <form class="ee-ncp__compose" (submit)="sendMessage($event)">
+          <ejs-textbox
+            [value]="draft()"
+            (input)="onDraftInput($any($event).value)"
+            [placeholder]="activeThreadId() ? 'Type a message…' : 'Select a thread'"
+            [enabled]="!!activeThreadId() && !sending()"
+            cssClass="ee-ncp__input"
+            aria-label="Message"
+          ></ejs-textbox>
+          <button
+            type="submit"
+            class="ee-ncp__send-btn"
+            [disabled]="!activeThreadId() || sending() || !draft().trim()"
+          >
+            {{ sending() ? '…' : 'Send' }}
+          </button>
+        </form>
+      }
+    </div>
+  }
+</div>

@@ -1,0 +1,410 @@
+Workforce Planning – API Endpoint & Response Spec
+===================================================
+This document lists every mock dataset consumed by the WorkforcePlanning screen
+(src/screens/WorkforcePlanning/index.tsx) and maps each to a recommended REST
+endpoint, HTTP method, query parameters, and the exact JSON response shape.
+
+================================================================================
+1. GET /api/workforce-planning/plans
+================================================================================
+Description     : Returns all active workforce plans.
+Query Params    : None (or optional ?status=active&ownerId=)
+Method          : GET
+
+Response – Array<WorkforcePlan>
+--------------------------------------------------------------------------------
+[
+  {
+    "id": "wp_2026_q3",
+    "name": "Q3 2026 Workforce Plan",
+    "status": "active",
+    "planningPeriodStart": "2026-07-01",
+    "planningPeriodEnd": "2026-09-30",
+    "ownerId": "u_104",
+    "currency": "USD",
+    "latestSnapshotAt": "2026-06-18T09:00:00-04:00"
+  }
+]
+
+Type definition (TypeScript)
+--------------------------------------------------------------------------------
+export interface WorkforcePlan {
+  id: string;
+  name: string;
+  status: 'draft' | 'active' | 'archived';
+  planningPeriodStart: string;   // yyyy-mm-dd
+  planningPeriodEnd: string;   // yyyy-mm-dd
+  ownerId: string;
+  currency: string;            // ISO 4217
+  latestSnapshotAt?: string;     // ISO 8601 with TZ offset
+}
+
+
+================================================================================
+2. GET /api/workforce-planning/scenarios
+================================================================================
+Description     : Returns scenario definitions linked to a plan.
+Query Params    : ?planId={planId}
+Method          : GET
+
+Response – Array<WorkforceScenario>
+--------------------------------------------------------------------------------
+[
+  {
+    "id": "scen_base",
+    "planId": "wp_2026_q3",
+    "name": "Baseline Plan",
+    "type": "baseline",
+    "headcountTarget": 425,
+    "hiringTarget": 48,
+    "attritionRate": 0.12,
+    "budgetImpact": 1845000,
+    "confidence": "high"
+  },
+  {
+    "id": "scen_growth",
+    "planId": "wp_2026_q3",
+    "name": "Growth Plan",
+    "type": "growth",
+    "headcountTarget": 452,
+    "hiringTarget": 67,
+    "attritionRate": 0.1,
+    "budgetImpact": 2037000,
+    "confidence": "medium"
+  },
+  {
+    "id": "scen_constrained",
+    "planId": "wp_2026_q3",
+    "name": "Constrained Plan",
+    "type": "constrained",
+    "headcountTarget": 401,
+    "hiringTarget": 31,
+    "attritionRate": 0.14,
+    "budgetImpact": 1729000,
+    "confidence": "low"
+  }
+]
+
+Type definition (TypeScript)
+--------------------------------------------------------------------------------
+export interface WorkforceScenario {
+  id: string;
+  planId: string;
+  name: string;
+  type: 'baseline' | 'growth' | 'constrained' | 'risk';
+  headcountTarget: number;
+  hiringTarget?: number;
+  attritionRate?: number;
+  budgetImpact: number;
+  confidence?: 'low' | 'medium' | 'high';
+}
+
+
+================================================================================
+3. GET /api/workforce-planning/line-items
+================================================================================
+Description     : Returns line-item staffing rows for one or all scenarios.
+Query Params    : ?scenarioId={scenarioId}  (optional; omit for all)
+Method          : GET
+
+Response – Array<WorkforceLineItem>
+--------------------------------------------------------------------------------
+[
+  {
+    "id": "li_eng_01",
+    "scenarioId": "scen_base",
+    "function": "Engineering",
+    "region": "EMEA",
+    "roleFamily": "Software Engineering",
+    "currentHeadcount": 112,
+    "plannedHeadcount": 124,
+    "openRoles": 8,
+    "costCenter": "CC-410"
+  },
+  {
+    "id": "li_eng_02",
+    "scenarioId": "scen_base",
+    "function": "Engineering",
+    "region": "NA",
+    "roleFamily": "Product Engineering",
+    "currentHeadcount": 74,
+    "plannedHeadcount": 80,
+    "openRoles": 4,
+    "costCenter": "CC-411"
+  },
+  {
+    "id": "li_sales_01",
+    "scenarioId": "scen_base",
+    "function": "Sales",
+    "region": "EMEA",
+    "roleFamily": "Account Executive",
+    "currentHeadcount": 38,
+    "plannedHeadcount": 42,
+    "openRoles": 3,
+    "costCenter": "CC-520"
+  },
+  {
+    "id": "li_hr_01",
+    "scenarioId": "scen_base",
+    "function": "HR",
+    "region": "APAC",
+    "roleFamily": "People Operations",
+    "currentHeadcount": 16,
+    "plannedHeadcount": 17,
+    "openRoles": 1,
+    "costCenter": "CC-120"
+  },
+  {
+    "id": "li_fin_01",
+    "scenarioId": "scen_base",
+    "function": "Finance",
+    "region": "NA",
+    "roleFamily": "FP&A",
+    "currentHeadcount": 22,
+    "plannedHeadcount": 23,
+    "openRoles": 0,
+    "costCenter": "CC-610"
+  },
+  {
+    "id": "li_eng_01_g",
+    "scenarioId": "scen_growth",
+    "function": "Engineering",
+    "region": "EMEA",
+    "roleFamily": "Software Engineering",
+    "currentHeadcount": 112,
+    "plannedHeadcount": 132,
+    "openRoles": 12,
+    "costCenter": "CC-410"
+  },
+  {
+    "id": "li_eng_02_g",
+    "scenarioId": "scen_growth",
+    "function": "Engineering",
+    "region": "NA",
+    "roleFamily": "Product Engineering",
+    "currentHeadcount": 74,
+    "plannedHeadcount": 87,
+    "openRoles": 7,
+    "costCenter": "CC-411"
+  },
+  {
+    "id": "li_sales_01_g",
+    "scenarioId": "scen_growth",
+    "function": "Sales",
+    "region": "EMEA",
+    "roleFamily": "Account Executive",
+    "currentHeadcount": 38,
+    "plannedHeadcount": 48,
+    "openRoles": 9,
+    "costCenter": "CC-520"
+  },
+  {
+    "id": "li_hr_01_g",
+    "scenarioId": "scen_growth",
+    "function": "HR",
+    "region": "APAC",
+    "roleFamily": "People Operations",
+    "currentHeadcount": 16,
+    "plannedHeadcount": 18,
+    "openRoles": 1,
+    "costCenter": "CC-120"
+  },
+  {
+    "id": "li_fin_01_g",
+    "scenarioId": "scen_growth",
+    "function": "Finance",
+    "region": "NA",
+    "roleFamily": "FP&A",
+    "currentHeadcount": 22,
+    "plannedHeadcount": 25,
+    "openRoles": 2,
+    "costCenter": "CC-610"
+  },
+  {
+    "id": "li_eng_01_c",
+    "scenarioId": "scen_constrained",
+    "function": "Engineering",
+    "region": "EMEA",
+    "roleFamily": "Software Engineering",
+    "currentHeadcount": 112,
+    "plannedHeadcount": 118,
+    "openRoles": 4,
+    "costCenter": "CC-410"
+  },
+  {
+    "id": "li_eng_02_c",
+    "scenarioId": "scen_constrained",
+    "function": "Engineering",
+    "region": "NA",
+    "roleFamily": "Product Engineering",
+    "currentHeadcount": 74,
+    "plannedHeadcount": 77,
+    "openRoles": 2,
+    "costCenter": "CC-411"
+  },
+  {
+    "id": "li_sales_01_c",
+    "scenarioId": "scen_constrained",
+    "function": "Sales",
+    "region": "EMEA",
+    "roleFamily": "Account Executive",
+    "currentHeadcount": 38,
+    "plannedHeadcount": 39,
+    "openRoles": 1,
+    "costCenter": "CC-520"
+  },
+  {
+    "id": "li_hr_01_c",
+    "scenarioId": "scen_constrained",
+    "function": "HR",
+    "region": "APAC",
+    "roleFamily": "People Operations",
+    "currentHeadcount": 16,
+    "plannedHeadcount": 16,
+    "openRoles": 0,
+    "costCenter": "CC-120"
+  },
+  {
+    "id": "li_fin_01_c",
+    "scenarioId": "scen_constrained",
+    "function": "Finance",
+    "region": "NA",
+    "roleFamily": "FP&A",
+    "currentHeadcount": 22,
+    "plannedHeadcount": 23,
+    "openRoles": 0,
+    "costCenter": "CC-610"
+  }
+]
+
+Type definition (TypeScript)
+--------------------------------------------------------------------------------
+export interface WorkforceLineItem {
+  id: string;
+  scenarioId: string;
+  function: string;
+  region: string;
+  roleFamily: string;
+  currentHeadcount: number;
+  plannedHeadcount: number;
+  openRoles?: number;
+  costCenter?: string;
+}
+
+
+================================================================================
+4. GET /api/scenario-assumptions
+================================================================================
+Description     : Returns assumption parameters for a given scenario.
+Query Params    : ?scenarioId={scenarioId}
+Method          : GET
+
+Response – Array<ScenarioAssumption>
+--------------------------------------------------------------------------------
+[
+  {
+    "id": "asmp_001",
+    "scenarioId": "scen_base",
+    "category": "attrition",
+    "value": 0.12,
+    "unit": "percent",
+    "note": "Backfills occur within 45 days"
+  },
+  {
+    "id": "asmp_002",
+    "scenarioId": "scen_base",
+    "category": "salary growth",
+    "value": 0.04,
+    "unit": "percent",
+    "note": "Annual merit increase assumption"
+  },
+  {
+    "id": "asmp_003",
+    "scenarioId": "scen_growth",
+    "category": "attrition",
+    "value": 0.1,
+    "unit": "percent",
+    "note": "Lower attrition in high-growth teams"
+  },
+  {
+    "id": "asmp_004",
+    "scenarioId": "scen_growth",
+    "category": "recruiting cycle",
+    "value": 2.5,
+    "unit": "months",
+    "note": "Average time to fill roles"
+  },
+  {
+    "id": "asmp_005",
+    "scenarioId": "scen_constrained",
+    "category": "attrition",
+    "value": 0.14,
+    "unit": "percent",
+    "note": "Hiring freeze risk included"
+  }
+]
+
+Type definition (TypeScript)
+--------------------------------------------------------------------------------
+export interface ScenarioAssumption {
+  id: string;
+  scenarioId: string;
+  category: string;
+  value: number;
+  unit: 'percent' | 'currency' | 'months' | 'count';
+  note?: string;
+}
+
+
+================================================================================
+5. GET /api/planning-snapshots
+================================================================================
+Description     : Returns captured snapshots for a workforce plan.
+Query Params    : ?planId={planId}
+Method          : GET
+
+Response – Array<PlanningSnapshot>
+--------------------------------------------------------------------------------
+[
+  {
+    "id": "snap_2026_06_18",
+    "planId": "wp_2026_q3",
+    "capturedAt": "2026-06-18T09:00:00-04:00",
+    "createdBy": "u_209",
+    "sourceSystem": "hris"
+  },
+  {
+    "id": "snap_2026_06_15",
+    "planId": "wp_2026_q3",
+    "capturedAt": "2026-06-15T18:30:00+01:00",
+    "createdBy": "u_104",
+    "sourceSystem": "planning-sheet"
+  }
+]
+
+Type definition (TypeScript)
+--------------------------------------------------------------------------------
+export interface PlanningSnapshot {
+  id: string;
+  planId: string;
+  capturedAt: string;     // ISO 8601 with TZ offset
+  createdBy: string;
+  sourceSystem: string;   // e.g. "hris", "planning-sheet"
+}
+
+
+================================================================================
+Summary of endpoints required for the WorkforcePlanning screen
+================================================================================
+| # | Method | Endpoint                           | Query Params          |
+|---|--------|------------------------------------|-----------------------|
+| 1 | GET    | /api/workforce-planning/plans               | —                     |
+| 2 | GET    | /api/workforce-planning/scenarios           | ?planId={planId}      |
+| 3 | GET    | /api/workforce-planning/line-items          | ?scenarioId={id}      |
+| 4 | GET    | /api/scenario-assumptions          | ?scenarioId={id}      |
+| 5 | GET    | /api/planning-snapshots            | ?planId={planId}      |
+
+All dates are ISO-8601 strings (yyyy-mm-dd or full ISO with TZ offset).
+All currency values are plain numbers in the smallest currency unit
+(e.g. USD cents) or whole dollars depending on your backend convention.
+The mock data above uses whole-dollar integers for budgetImpact.

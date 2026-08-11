@@ -1,0 +1,129 @@
+@*
+  Port of src/screens/Overview/components/KpiCard.tsx — a single KPI tile with
+  a sparkline trend, a delta badge, an optional progress bar, and an
+  optional high-risk highlight ring.
+
+  NOTE: Syncfusion EJ2 Blazor 33.2.3 does NOT ship an SfSparkline wrapper
+  (the legacy React-only component). The sparkline is rendered as inline
+  SVG using the trendData points and the card's accent color.
+
+  TODO(syncfusion-blazor): replace the hand-rolled SVG sparkline with
+  <SfSparkline> from a future Syncfusion.Blazor.Charts release that
+  restores sparkline parity.
+*@
+
+@using BlazorWebApp.Components.Models
+@using Syncfusion.Blazor.Buttons
+
+<SfCard CssClass="@($"kpi-card-sf {(IsRiskHighlight ? "kpi-card-sf--risk" : null)}")">
+    <div class="kpi-card @(IsRiskHighlight ? "kpi-card--risk" : null)"
+     role="button"
+     tabindex="@(OnClick.HasDelegate ? 0 : -1)"
+     aria-label="@($"{Title}: {Value}")"
+     @onclick="HandleClick"
+     @onkeydown="HandleKey">
+        <div class="kpi-card__header">
+        <div class="kpi-card__title">@Title</div>
+        @if (IsRiskHighlight)
+        {
+            <SfChip CssClass="kpi-card__risk-chip" title="Risk exceeded threshold">
+                <ChipItems>
+                    <ChipItem Text="HIGH RISK" CssClass="e-danger e-small"></ChipItem>
+                </ChipItems>
+            </SfChip>
+        }
+    </div>
+
+    <div class="kpi-card__body">
+        <div class="kpi-card__row">
+            <div class="kpi-card__value-block">
+                <div class="kpi-card__value @(IsRiskHighlight ? "kpi-card__value--risk" : null)">@Value</div>
+            </div>
+            <div class="kpi-card__spark" title="Last 6 months trend">
+                <svg class="kpi-card__spark-svg" viewBox="0 0 120 40" preserveAspectRatio="none" aria-hidden="true">
+                    <path d="@SparklinePath" fill="none" stroke="@Color" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+            </div>
+        </div>
+        <SfChip CssClass="@($"kpi-card__delta-chip {(IsPositive ? "kpi-card__delta-chip--up" : "kpi-card__delta-chip--down")}")"
+                title="Change since previous month">
+            <ChipItems>
+                <ChipItem Text="@ChangeLabel" CssClass="@(IsPositive ? "e-success e-small" : "e-danger e-small")"></ChipItem>
+            </ChipItems>
+        </SfChip>
+        <div class="kpi-card__context">@Context</div>
+    </div>
+    </div>
+</SfCard>
+
+@code {
+    [Parameter, EditorRequired] public string Title { get; set; } = "";
+    [Parameter, EditorRequired] public string Value { get; set; } = "";
+    [Parameter, EditorRequired] public double Change { get; set; }
+    [Parameter, EditorRequired] public KpiTrendPoint[] TrendData { get; set; } = Array.Empty<KpiTrendPoint>();
+    [Parameter, EditorRequired] public string Context { get; set; } = "";
+    [Parameter] public string Color { get; set; } = "#3B8CDE";
+    [Parameter] public double RiskThreshold { get; set; } = 20;
+    [Parameter] public double? RiskValue { get; set; }
+    /// <summary>
+    /// When true, an UPWARD change is treated as a NEGATIVE outcome
+    /// (e.g. Retention Risk, Open Requisitions). The delta arrow,
+    /// sign prefix, and chip color are all flipped accordingly.
+    /// </summary>
+    [Parameter] public bool InvertTrend { get; set; }
+    [Parameter] public EventCallback OnClick { get; set; }
+
+    private bool IsUp => Change >= 0;
+
+    // Chip color is "good" (green) when the change direction matches the
+    // metric's desired outcome. With InvertTrend=false an upward change is
+    // good; with InvertTrend=true a downward change is good.
+    private bool IsPositive => InvertTrend ? !IsUp : IsUp;
+
+    private bool IsRiskHighlight => RiskValue.HasValue && RiskValue.Value > RiskThreshold;
+
+    private string ChangeLabel
+    {
+        get
+        {
+            var arrow = IsUp ? "▲" : "▼";
+            var sign = IsUp ? "+" : "−";
+            return $"{arrow} {sign}{Math.Abs(Change)} since last month";
+        }
+    }
+
+    // Build an SVG path string that fits the trend points into a 120×40 viewbox.
+    private string SparklinePath
+    {
+        get
+        {
+            if (TrendData is null || TrendData.Length == 0) return string.Empty;
+            var minY = TrendData.Min(p => p.Yval);
+            var maxY = TrendData.Max(p => p.Yval);
+            var range = Math.Max(0.0001, maxY - minY);
+            const double width = 120;
+            const double height = 40;
+            const double padY = 4;
+            var stepX = TrendData.Length == 1 ? 0 : width / (TrendData.Length - 1);
+            var sb = new System.Text.StringBuilder();
+            for (int i = 0; i < TrendData.Length; i++)
+            {
+                var x = i * stepX;
+                var y = height - padY - ((TrendData[i].Yval - minY) / range) * (height - padY * 2);
+                sb.Append(i == 0 ? "M" : " L").Append(' ').Append(x.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture))
+                  .Append(' ').Append(y.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture));
+            }
+            return sb.ToString();
+        }
+    }
+
+    private async Task HandleClick() => await OnClick.InvokeAsync();
+
+    private async Task HandleKey(KeyboardEventArgs e)
+    {
+        if (OnClick.HasDelegate && (e.Key == "Enter" || e.Key == " "))
+        {
+            await OnClick.InvokeAsync();
+        }
+    }
+}

@@ -1,0 +1,40 @@
+@*
+  SnapshotCard — the "Snapshots Captured" stat card.
+  Port of the inline SnapshotCard component in src/screens/WorkforcePlanning/index.tsx.
+
+  Uses <SfCard> for the standard Syncfusion card chrome. The visible
+  chrome lives on a Blazor-rendered inner <div class="wp-stat-card-sf">;
+  SnapshotCard.razor.css matches it via the [b-scope] attribute.
+*@
+
+@using Syncfusion.Blazor.Cards
+
+<SfCard CssClass="wp-stat-card-sf">
+    <div class="wp-stat-card-sf">
+        <div class="wp-stat-header">
+            <span class="wp-stat-label">Snapshots Captured</span>
+        </div>
+        <div class="wp-stat-body">
+            <span class="wp-stat-value wp-stat-number">@Count</span>
+            @if (!string.IsNullOrEmpty(LastLabel))
+            {
+                <span class="wp-stat-subtext">Latest: @LastLabel</span>
+            }
+        </div>
+    </div>
+</SfCard>
+
+@code {
+    [Parameter, EditorRequired] public int Count { get; set; }
+    [Parameter] public string? LastSnapshotAt { get; set; }
+
+    private string? LastLabel =>
+        string.IsNullOrWhiteSpace(LastSnapshotAt) ? null : FormatDate(LastSnapshotAt);
+
+    private static string FormatDate(string iso)
+    {
+        if (DateTimeOffset.TryParse(iso, out var d))
+            return d.ToLocalTime().ToString("MMM d, yyyy");
+        return iso;
+    }
+}

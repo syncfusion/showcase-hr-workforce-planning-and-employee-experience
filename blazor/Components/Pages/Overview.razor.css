@@ -1,0 +1,207 @@
+/* Overview page — flex layout, KPI grid, section containers, breakpoints. */
+.overview-screen {
+    animation: fadeIn 0.3s ease-in;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .overview-screen { animation: none; }
+}
+
+/* === Base layout (xl, >1280) === */
+.overview-layout {
+    display: flex;
+    gap: 24px;
+    align-items: flex-start;
+}
+
+.overview-main {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+.overview-sidebar {
+    width: 320px;
+    flex-shrink: 0;
+    position: sticky;
+    top: 16px;
+    background: var(--color-sf-bg-primary);
+    border: 1px solid var(--color-sf-border-secondary);
+    border-radius: 12px;
+    box-shadow: var(--shadow-default);
+    padding: 20px;
+}
+
+.kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 20px;
+}
+
+/* KPI card hover */
+.kpi-grid .e-card {
+    border-radius: 12px !important;
+    border: 1px solid var(--color-sf-border-secondary) !important;
+    box-shadow: var(--shadow-default) !important;
+    transition: box-shadow 0.2s ease, transform 0.2s ease !important;
+}
+.kpi-grid .e-card:hover {
+    box-shadow: var(--shadow-md) !important;
+    transform: translateY(-1px);
+}
+
+.section-container {
+    background: var(--color-sf-bg-primary);
+    border-radius: 12px;
+    padding: 24px;
+    border: 1px solid var(--color-sf-border-secondary);
+    box-shadow: var(--shadow-default);
+    transition: box-shadow 0.2s ease;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.section-container:hover {
+    box-shadow: var(--shadow-md);
+}
+
+.section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-bottom: 14px;
+    border-bottom: 1px solid var(--color-sf-border-tertiary);
+}
+
+.section-title {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--color-sf-fg-tertiary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.section-actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+/* Requisition grid polish (hosted inside .section-container) */
+.section-container .e-grid {
+    border: none !important;
+    font-family: inherit !important;
+}
+.section-container .e-grid .e-headercell,
+.section-container .e-grid .e-headercelldiv {
+    background: var(--color-sf-bg-secondary-subtle) !important;
+    color: var(--color-sf-fg-secondary) !important;
+    font-size: 11px !important;
+    font-weight: 600 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.5px !important;
+}
+.section-container .e-grid .e-rowcell {
+    font-size: 13px !important;
+    color: var(--color-sf-fg-primary) !important;
+}
+.section-container .e-grid .e-row:hover .e-rowcell {
+    background: var(--color-sf-bg-secondary-subtle) !important;
+}
+
+/* Detail panel sidebar polish */
+.overview-sidebar .detail-panel {
+    gap: 20px !important;
+}
+
+/* New plan dialog form */
+.overview-new-plan-form {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    padding: 8px 0;
+}
+.overview-new-plan-label-text {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--color-sf-fg-tertiary);
+    display: block;
+    margin-bottom: 6px;
+}
+
+/* === lg — 1025–1280 === */
+@media (min-width: 1025px) and (max-width: 1280px) {
+    .overview-sidebar { width: 300px; padding: 18px; }
+    .kpi-grid { gap: 16px; }
+}
+
+/* === md — 769–1024 === */
+@media (min-width: 769px) and (max-width: 1024px) {
+    .overview-layout { gap: 20px; }
+    .overview-sidebar { width: 280px; padding: 16px; }
+    .kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+    .section-container { padding: 20px; }
+}
+
+/* === sm — 481–768 === */
+.overview-layout--stack {
+    flex-direction: column !important;
+    gap: 16px !important;
+}
+.overview-layout--stack .overview-main,
+.overview-layout--stack .overview-sidebar {
+    width: 100% !important;
+    max-width: 100% !important;
+}
+.overview-layout--stack .overview-sidebar { position: static; }
+.overview-layout--stack .kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.overview-layout--stack .section-container { padding: 16px; }
+.overview-layout--stack .section-header { padding: 12px 16px; }
+
+/* === xs — <=480 === */
+@media (max-width: 480px) {
+    .overview-layout { gap: 12px; }
+    .kpi-grid { grid-template-columns: 1fr; gap: 12px; }
+    .section-container { padding: 12px; border-radius: 10px; }
+    .section-header {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 10px;
+    }
+    .section-title { font-size: 11px; }
+    .section-actions .e-btn { width: 100%; }
+    .overview-new-plan-label { display: none; }
+}
+
+/* === New-plan dialog responsive — bottom sheet on xs, fluid on sm === */
+@media (max-width: 480px) {
+    .overview-new-plan-dialog.e-dialog {
+        width: 100% !important;
+        max-width: 100% !important;
+        margin: 0 !important;
+        border-radius: 12px 12px 0 0;
+        top: auto !important;
+        bottom: 0 !important;
+        left: 0 !important;
+        transform: none !important;
+    }
+}
+
+@media (min-width: 481px) and (max-width: 768px) {
+    .overview-new-plan-dialog.e-dialog { width: 90% !important; max-width: 480px !important; }
+}

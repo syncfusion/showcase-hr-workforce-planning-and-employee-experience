@@ -1,0 +1,245 @@
+/* DetailPanel — sidebar rail with AI CTA, quick actions, and
+   timeline. Mirrors src/screens/Overview/components/DetailPanel.tsx.
+
+   CSS isolation notes:
+   - `.detail-panel` and the `__*` classes below are all on
+     Blazor-rendered elements (the root <div> and its direct
+     children), so plain selectors work.
+   - `.e-card`, `.e-btn`, etc. are Syncfusion-rendered, so we wrap
+     the last class in `:deep()` per the project CSS-isolation
+     convention (see the long-form comment in
+     KpiCard.razor.css for the rationale).
+*/
+
+.detail-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+.detail-panel__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid var(--color-sf-border-tertiary);
+    padding-bottom: 8px;
+}
+
+.detail-panel__title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--color-sf-fg-primary);
+}
+
+.detail-panel__ai-card {
+    padding: 16px;
+    border-radius: var(--card-sm-radius, 8px);
+    background: linear-gradient(135deg, var(--color-sf-bg-brand-primary) 0%, var(--color-sf-bg-brand-secondary) 100%);
+    border: 1px solid var(--color-sf-border-brand);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.detail-panel__ai-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 8px;
+    position: relative;
+}
+
+.detail-panel__ai-label {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--color-sf-fg-brand-primary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    flex: 1;
+}
+
+.detail-panel__ai-dismiss {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    padding: 0;
+    border: 1px solid var(--color-sf-border-brand);
+    border-radius: 50%;
+    background: var(--color-sf-bg-primary);
+    color: var(--color-sf-fg-brand-primary);
+    cursor: pointer;
+    line-height: 1;
+    font-size: 12px;
+    font-weight: 700;
+    margin-left: auto;
+}
+
+.detail-panel__ai-dismiss:hover {
+    background: var(--color-sf-bg-secondary);
+}
+
+.detail-panel__ai-quote {
+    font-size: 13px;
+    line-height: 1.5;
+    color: var(--color-sf-fg-primary);
+    margin-bottom: 12px;
+    padding: 10px 12px;
+    background: var(--color-sf-bg-primary);
+    border-radius: 8px;
+    border-left: 3px solid var(--color-sf-border-brand);
+    font-style: italic;
+}
+
+.detail-panel__ai-drop {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--color-sf-fg-error-primary, #c0392b);
+    margin-bottom: 12px;
+}
+
+.detail-panel__ai-status {
+    font-size: 12px;
+    color: var(--color-sf-fg-secondary);
+    margin-bottom: 12px;
+}
+
+.detail-panel__ai-error {
+    font-size: 12px;
+    color: var(--color-sf-fg-error-primary, #c0392b);
+    margin-bottom: 12px;
+}
+
+.detail-panel__ai-cta {
+    width: 100%;
+    justify-content: center;
+}
+
+.detail-panel__section {
+    display: flex;
+    flex-direction: column;
+}
+
+.detail-panel__section-title {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--color-sf-fg-tertiary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    display: block;
+    margin-bottom: 12px;
+}
+
+.detail-panel__quick-actions {
+    margin-top: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+/* The trailing class here is Syncfusion-rendered (`<SfButton>` →
+   `.e-btn`). Use :deep() so the rule survives Blazor CSS
+   isolation. The parent `.detail-panel__quick-actions` is on a
+   Blazor-rendered <div>, so the scope attribute lands on it. */
+.detail-panel__quick-actions :deep(.e-btn) {
+    justify-content: flex-start;
+    text-align: left;
+    font-size: 13px;
+}
+
+.detail-panel__timeline {
+    margin-top: 12px;
+}
+
+/* Pure-Blazor timeline — vertical column, 16px dot on the left, 1px
+   connector line, content on the right. Matches the visual structure
+   of the EJ2 / React / Angular versions without going through EJ2's
+   template compile() engine. */
+.detail-timeline {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+}
+
+.detail-timeline__item {
+    position: relative;
+    display: flex;
+    flex-direction: row;
+    align-items: flex-start;
+    padding-left: 32px;
+}
+
+.detail-timeline__item:not(:last-child) {
+    padding-bottom: 16px;
+}
+
+.detail-timeline__dot {
+    position: absolute;
+    left: 8px;
+    top: 6px;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: var(--color-sf-bg-primary);
+    border: 2px solid var(--color-sf-border-brand);
+    box-sizing: border-box;
+    z-index: 1;
+}
+
+.detail-timeline__line {
+    position: absolute;
+    left: 15px;
+    top: 14px;
+    bottom: 0;
+    width: 1px;
+    background: var(--color-sf-border-tertiary);
+}
+
+.detail-timeline__content {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    flex: 1;
+    min-width: 0;
+}
+
+.detail-timeline__title {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--color-sf-fg-primary);
+    line-height: 1.4;
+    word-break: break-word;
+}
+
+.detail-timeline__detail {
+    font-size: 11px;
+    color: var(--color-sf-fg-quaternary);
+    line-height: 1.4;
+    word-break: break-word;
+}
+
+.detail-timeline__time {
+    font-size: 11px;
+    color: var(--color-sf-fg-quaternary);
+}
+
+/* Inline toast for clipboard / mailto / tel confirmations that
+   bypass the QuickActionDialog. */
+.detail-panel__toast {
+    position: sticky;
+    bottom: 0;
+    margin-top: 8px;
+    padding: 10px 12px;
+    background: var(--color-sf-bg-primary);
+    border: 1px solid var(--color-sf-border-brand);
+    border-left: 3px solid var(--color-sf-border-brand);
+    border-radius: 6px;
+    font-size: 12px;
+    color: var(--color-sf-fg-primary);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    cursor: pointer;
+}

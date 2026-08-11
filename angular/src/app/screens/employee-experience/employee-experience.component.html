@@ -1,0 +1,132 @@
+@if (!notificationsLoaded()) {
+  <app-loading-state height="400px"></app-loading-state>
+} @else {
+  <div class="employee-experience-screen">
+    <app-page-header
+      title="Employee Experience"
+      subtitle="Self-service, feedback, recognition, career, and learning — with issue reporting and triage"
+    ></app-page-header>
+
+    <div class="ee-tabs-row" role="toolbar" aria-label="Employee experience sections">
+      <div class="ee-tabs-row__tabs" aria-label="Employee experience sub-sections">
+        <ejs-tab
+          [selectedItem]="selectedTabIndex()"
+          (selected)="onTabSelected($event)"
+          cssClass="ee-modern-tabs"
+        >
+          <e-tabitems>
+            @for (item of tabItems; track item.id) {
+              <e-tabitem [header]="{ text: item.text }"></e-tabitem>
+            }
+          </e-tabitems>
+        </ejs-tab>
+      </div>
+      <button
+        type="button"
+        class="ee-bell"
+        (click)="openNotifications()"
+        [attr.aria-label]="
+          unreadCount() > 0
+            ? 'Notifications (' + unreadCount() + ' unread)'
+            : 'Notifications'
+        "
+        title="Open notifications"
+      >
+        <span class="ee-bell__icon" aria-hidden="true">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.75"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
+            <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
+          </svg>
+        </span>
+        @if (unreadCount() > 0) {
+          <span class="ee-bell__count" role="status" aria-live="polite">
+            {{ unreadCount() > 99 ? '99+' : unreadCount() }}
+          </span>
+        }
+      </button>
+    </div>
+
+    <section class="ee-subsection-content" aria-live="polite">
+      @switch (activeSection()) {
+        @case ('self-service') {
+          <app-self-service-section></app-self-service-section>
+        }
+        @case ('feedback') {
+          <app-feedback-section></app-feedback-section>
+        }
+        @case ('recognition') {
+          <app-recognition-section></app-recognition-section>
+        }
+        @case ('career') {
+          <app-career-section></app-career-section>
+        }
+        @case ('learning') {
+          <app-learning-section></app-learning-section>
+        }
+        @case ('my-board') {
+          <app-my-board-section
+            (reportIssue)="openReportIssue()"
+            (delayConcern)="openDelayConcern()"
+          ></app-my-board-section>
+        }
+        @default {
+          <app-self-service-section></app-self-service-section>
+        }
+      }
+    </section>
+
+    <app-report-issue-dialog
+      [isOpen]="isReportIssueOpen()"
+      (isOpenChange)="closeReportIssue()"
+      (closed)="closeReportIssue()"
+    ></app-report-issue-dialog>
+
+    <app-delay-concern-dialog
+      [isOpen]="isDelayConcernOpen()"
+      (isOpenChange)="closeDelayConcern()"
+      (closed)="closeDelayConcern()"
+    ></app-delay-concern-dialog>
+
+    @if (isNotificationsOpen()) {
+      <div
+        class="ee-drawer-backdrop"
+        role="presentation"
+        aria-hidden="true"
+        (click)="closeNotifications()"
+      ></div>
+      <div
+        class="ee-drawer"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Notifications and chat"
+      >
+        <div class="ee-drawer-header">
+          <h3 class="ee-section-title">Notifications</h3>
+          <button
+            type="button"
+            class="ee-close-btn"
+            (click)="closeNotifications()"
+            aria-label="Close notifications"
+          >
+            ×
+          </button>
+        </div>
+        <div class="ee-drawer-body">
+          <app-notifications-chat-panel
+            (unreadChange)="handleUnreadChange($event)"
+          ></app-notifications-chat-panel>
+        </div>
+      </div>
+    }
+  </div>
+}

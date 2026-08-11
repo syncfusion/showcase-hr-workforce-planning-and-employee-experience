@@ -1,0 +1,295 @@
+@*
+  Port of src/screens/EmployeeExperience/components/MyBoardSection.tsx.
+
+  Renders the personal Kanban board with the Report / Delay action buttons
+  above it. Acts as the last tab in the Employee Experience screen (was
+  previously the right-rail Triage Board before the layout refactor).
+*@
+
+@inject IEmployeeExperienceService EmployeeExperienceService
+@implements IAsyncDisposable
+
+<div class="ee-board-section" aria-label="My board">
+    <div class="ee-board-header">
+        <h3 class="ee-section-title">My Board</h3>
+        <div class="ee-board-actions">
+            <SfButton CssClass="e-outline ee-board-actions__btn"
+                      IconCss="e-icons e-warning"
+                      aria-label="Report an issue"
+                      OnClick="HandleReportIssue">
+                Report
+            </SfButton>
+            <SfButton CssClass="e-outline ee-board-actions__btn"
+                      IconCss="e-icons e-clock"
+                      aria-label="Raise a delay concern"
+                      OnClick="HandleDelayConcern">
+                Delay
+            </SfButton>
+        </div>
+    </div>
+
+    @if (_kanbanLoading)
+    {
+        <LoadingState Variant="LoadingState.VariantKind.Spinner" Height="220px" />
+    }
+    else if (_kanbanError is not null)
+    {
+        <ErrorState Message="@_kanbanError" OnRetry="LoadKanbanAsync" />
+    }
+    else if (_kanbanItems.Count == 0)
+    {
+        <EmptyState Title="No triage items"
+                    Description="Report an issue or raise a delay concern to start triage." />
+    }
+    else
+    {
+        <SfKanban TValue="KanbanItem"
+                  ID="ee-kanban"
+                  DataSource="@_kanbanItems"
+                  KeyField="Lane"
+                  AllowDragAndDrop="true"
+                  Width="100%">
+                <KanbanColumns>
+                    @foreach (var lane in KanbanLanes)
+                    {
+                        <KanbanColumn KeyField="@(new List<string> { lane.Key })"
+                                      HeaderText="@lane.Label"
+                                      ShowItemCount="true" />
+                    }
+                </KanbanColumns>
+                <KanbanSwimlaneSettings KeyField="SourceType"
+                                       TextField="SourceType"
+                                       ShowItemCount="true"
+                                       AllowDragAndDrop="true"
+                                       SortDirection="Syncfusion.Blazor.Kanban.SortDirection.Ascending">
+                    <Template>
+                        @{
+                            var sw = (Syncfusion.Blazor.Kanban.SwimlaneSettingsModel)context;
+                            var swKey = sw.KeyField ?? string.Empty;
+                            var swLabel = SourceTypeLabels.TryGetValue(swKey, out var lbl) ? lbl : swKey;
+                        }
+                        <div class="ee-swimlane-template">
+                            <span class="ee-swimlane-template__label">@swLabel</span>
+                        </div>
+                    </Template>
+                </KanbanSwimlaneSettings>
+                <KanbanCardSettings HeaderField="Id">
+                    <Template>
+                        @{
+                            var item = (KanbanItem)context;
+                            var priorityClass = PriorityClass(item.Priority);
+                            var priorityLabel = PriorityLabels.GetValueOrDefault(priorityClass, item.Priority ?? "—");
+                            var tags = TagList(item);
+                            var visibleTags = tags.Take(3).ToList();
+                            var moreCount = tags.Count - visibleTags.Count;
+                            var dueLabel = FormatDateShort(item.DueDate);
+                            var initials = AvatarInitials(item.AssigneeId);
+                        }
+                        <div class="ee-kb-card ee-kb-card--@priorityClass">
+                            <div class="ee-kb-card__header">
+                                @if (!string.IsNullOrEmpty(item.Priority))
+                                {
+                                    <span class="ee-priority-pill ee-priority-pill--@priorityClass">
+                                        @priorityLabel
+                                    </span>
+                                }
+                                else
+                                {
+                                    <span></span>
+                                }
+                            </div>
+                            <div class="ee-kb-card__title" title="@item.Title">@item.Title</div>
+                            @if (visibleTags.Count > 0)
+                            {
+                                <div class="ee-kb-card__tags">
+                                    @foreach (var t in visibleTags)
+                                    {
+                                        <span class="ee-kb-card__tag">@t</span>
+                                    }
+                                    @if (moreCount > 0)
+                                    {
+                                        <span class="ee-kb-card__tag ee-kb-card__tag--more">+@moreCount</span>
+                                    }
+                                </div>
+                            }
+                            <div class="ee-kb-card__footer">
+                                <div class="ee-kb-card__meta ee-kb-card__meta--user">
+                                    <span class="ee-kb-card__avatar" aria-hidden="true">@initials</span>
+                                    <span class="ee-kb-card__meta-text" title="@(item.AssigneeId ?? "Unassigned")">@(item.AssigneeId ?? "Unassigned")</span>
+                                </div>
+                                @if (!string.IsNullOrEmpty(dueLabel))
+                                {
+                                    <div class="ee-kb-card__meta ee-kb-card__meta--date" title="@dueLabel">
+                                        <span class="ee-kb-card__meta-icon" aria-hidden="true">📅</span>
+                                        <span class="ee-kb-card__meta-text">@dueLabel</span>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    </Template>
+                </KanbanCardSettings>
+                <KanbanEvents TValue="KanbanItem"
+                              ActionComplete="OnKanbanActionComplete" />
+        </SfKanban>
+    }
+</div>
+
+@code {
+    [Parameter] public EventCallback OnReportIssue { get; set; }
+    [Parameter] public EventCallback OnDelayConcern { get; set; }
+
+    private record KanbanLaneDef(string Key, string Label);
+
+    private static readonly KanbanLaneDef[] KanbanLanes = new[]
+    {
+        new KanbanLaneDef("backlog", "Backlog"),
+        new KanbanLaneDef("in-progress", "In Progress"),
+        new KanbanLaneDef("in-review", "In Review"),
+        new KanbanLaneDef("done", "Done"),
+    };
+
+    // Mirrors SOURCE_TYPE_LABELS in
+    // src/screens/EmployeeExperience/employeeExperienceConfig.ts — used to
+    // display a human-readable label for each swimlane row in the triage
+    // board (Self-Service, Pulse Feedback, Recognition, Career, Learning,
+    // Issue, Delay). The KeyField is the raw sourceType from the
+    // KanbanItem DTO; the label is what we render in the swimlane header.
+    private static readonly Dictionary<string, string> SourceTypeLabels = new()
+    {
+        { "self-service", "Self-Service" },
+        { "pulse-feedback", "Pulse Feedback" },
+        { "recognition", "Recognition" },
+        { "career", "Career" },
+        { "learning", "Learning" },
+        { "issue", "Issue" },
+        { "delay", "Delay" },
+    };
+
+    // Mirrors PRIORITY_LABELS in
+    // src/screens/EmployeeExperience/employeeExperienceConfig.ts — the
+    // priority pill text rendered in each Kanban card. Keys are the raw
+    // priority values from the KanbanItem DTO.
+    private static readonly Dictionary<string, string> PriorityLabels = new()
+    {
+        { "low", "Low" },
+        { "medium", "Medium" },
+        { "high", "High" },
+        { "critical", "Critical" },
+    };
+
+    private List<KanbanItem> _kanbanItems = new();
+    private bool _kanbanLoading = true;
+    private string? _kanbanError;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadKanbanAsync();
+    }
+
+    public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+
+    private void HandleReportIssue() => OnReportIssue.InvokeAsync();
+    private void HandleDelayConcern() => OnDelayConcern.InvokeAsync();
+
+    private async Task LoadKanbanAsync()
+    {
+        try
+        {
+            _kanbanLoading = true;
+            _kanbanError = null;
+            var items = await EmployeeExperienceService.GetKanbanItemsAsync();
+            _kanbanItems = items.ToList();
+        }
+        catch (Exception ex)
+        {
+            _kanbanError = "Failed to load Kanban board";
+            Console.Error.WriteLine(ex);
+        }
+        finally
+        {
+            _kanbanLoading = false;
+        }
+    }
+
+    private async Task OnKanbanActionComplete(Syncfusion.Blazor.Kanban.ActionEventArgs<KanbanItem> args)
+    {
+        // Mirrors the React handleDragStop — PATCH the lane change to the
+        // server, then re-fetch so the board reflects the server-side
+        // recalculation (lane → entity status mapping happens server-side).
+        if (args.RequestType != "CardChanged" || args.ChangedRecords?.Any() != true)
+        {
+            return;
+        }
+
+        foreach (var record in args.ChangedRecords)
+        {
+            try
+            {
+                var updated = await EmployeeExperienceService.MoveKanbanItemAsync(record.Id, record.Lane);
+                if (updated is null)
+                {
+                    _kanbanError = $"Card '{record.Title}' no longer exists on the server.";
+                }
+            }
+            catch (Exception ex)
+            {
+                _kanbanError = $"Failed to move '{record.Title}' to {record.Lane}.";
+                Console.Error.WriteLine(ex);
+            }
+        }
+
+        await LoadKanbanAsync();
+    }
+
+    private static string FormatDate(string iso)
+    {
+        if (DateTimeOffset.TryParse(iso, out var dt)) return dt.ToLocalTime().ToString("MMM d");
+        return iso;
+    }
+
+    // Mirrors priorityClass() in kanban-board.component.ts — maps a raw
+    // priority string to one of the four known token suffixes (low,
+    // medium, high, critical). Unknown / empty values return an empty
+    // string so the modifier class collapses cleanly.
+    private static string PriorityClass(string? priority)
+    {
+        if (string.IsNullOrEmpty(priority)) return string.Empty;
+        var key = priority.ToLowerInvariant();
+        return key is "low" or "medium" or "high" or "critical" ? key : string.Empty;
+    }
+
+    // Mirrors tagList() in kanban-board.component.ts — returns a clean
+    // string list (used to drive the +N more truncation).
+    private static IReadOnlyList<string> TagList(KanbanItem item)
+    {
+        if (item.Tags is null || item.Tags.Count == 0)
+        {
+            return Array.Empty<string>();
+        }
+        return item.Tags
+            .Where(t => !string.IsNullOrWhiteSpace(t))
+            .Select(t => t.Trim())
+            .ToList();
+    }
+
+    // Mirrors avatarInitials() in kanban-board.component.ts — first
+    // uppercase character of the assignee id (or "?" when unassigned).
+    private static string AvatarInitials(string? assigneeId)
+    {
+        if (string.IsNullOrEmpty(assigneeId)) return "?";
+        return assigneeId.Substring(0, 1).ToUpperInvariant();
+    }
+
+    // Mirrors formatDateShort() in kanban-board.component.ts — locale
+    // "MMM d" rendering, returns empty string for null / unparseable
+    // values so the footer can omit the date block.
+    private static string FormatDateShort(string? iso)
+    {
+        if (string.IsNullOrEmpty(iso)) return string.Empty;
+        if (DateTimeOffset.TryParse(iso, out var dt))
+        {
+            return dt.ToLocalTime().ToString("MMM d");
+        }
+        return string.Empty;
+    }
+}

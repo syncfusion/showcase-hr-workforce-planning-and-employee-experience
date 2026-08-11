@@ -1,0 +1,476 @@
+@*
+  Port of src/screens/EmployeeExperience/components/FeedbackSection.tsx.
+
+  Lists active + historical pulse surveys, lets the user open an inline
+  response form (sentiment NumericTextBox + comment TextArea), submits
+  via IEmployeeExperienceService.SubmitPulseResponseAsync. Includes a
+  doughnut response-rate chart and a theme-sentiment grid.
+
+  Layout is kept 1:1 with the React version:
+    • Header with summary chips (X open / Y closed) on the right
+    • Per-survey card with title block, status chip, response-rate meter,
+      priority tags, and a Complete-Survey button that opens an inline form
+    • Inline form: Cancel (e-flat) + Submit (e-primary), dashed top border
+    • Response-Rates-by-Active-Survey doughnut chart
+    • Theme Sentiment grid with a sentiment chip per row
+*@
+
+@inject IEmployeeExperienceService EmployeeExperienceService
+@inject ThemeService Theme
+@implements IDisposable
+
+@if (_isLoading)
+{
+    <LoadingState Variant="LoadingState.VariantKind.Spinner" Height="320px" />
+}
+else if (_error is not null)
+{
+    <ErrorState Message="@_error" OnRetry="LoadAsync" />
+}
+else if (_surveys.Count == 0)
+{
+    <EmptyState Title="No pulse surveys yet"
+                Description="When pulse surveys open, you can complete them here and track sentiment themes." />
+}
+else
+{
+    <div class="feedback-section">
+
+        <!-- ── Section header ────────────────────────────────────── -->
+        <div class="feedback-section__header">
+            <div>
+                <h3 class="ee-section-title" style="margin: 0">Pulse Surveys</h3>
+                <div class="ee-muted" style="margin-top: 2px">
+                    Capture how the team feels and act on emerging themes.
+                </div>
+            </div>
+            <SfChip CssClass="feedback-summary-chips" aria-label="Survey summary">
+                <ChipItems>
+                    @foreach (var c in _summaryChips)
+                    {
+                        <ChipItem Text="@c.Text" CssClass="@c.CssClass" />
+                    }
+                </ChipItems>
+            </SfChip>
+        </div>
+
+        <!-- ── Survey cards ───────────────────────────────────────── -->
+        <div class="ee-list" style="margin-bottom: var(--spacing-24, 24px)">
+            @foreach (var s in _surveys)
+            {
+                var priorityTags = GetPriorityTags(s);
+                var statusVariant = StatusChipVariants.GetValueOrDefault(s.Status, "e-outline");
+                var isActive = _activeSurveyId == s.Id;
+                var ratePct = (int)Math.Round(Math.Clamp((double)s.ResponseRate, 0d, 100d));
+                var rateFill = GetRateFillColor(ratePct);
+                <div class="ee-card feedback-survey-card @(isActive ? "is-active" : "")">
+                    <div class="feedback-survey-card__head">
+                        <div class="feedback-survey-card__title-block">
+                            <div class="feedback-survey-card__title">@s.Title</div>
+                            <div class="ee-muted feedback-survey-card__meta">@BuildMeta(s)</div>
+                        </div>
+                        <SfChip CssClass="@statusVariant" aria-label="Survey status">
+                            <ChipItems>
+                                <ChipItem Text="@s.Status" />
+                            </ChipItems>
+                        </SfChip>
+                    </div>
+
+                    <!-- Response-rate progress meter -->
+                    <div class="feedback-rate" role="meter"
+                         aria-valuemin="0" aria-valuemax="100" aria-valuenow="@ratePct"
+                         aria-label="@($"{s.Title} response rate")">
+                        <div class="feedback-rate__track">
+                            <div class="feedback-rate__fill" style="width:@(ratePct)%; background:@rateFill"></div>
+                        </div>
+                        <div class="feedback-rate__label">
+                            <span>@ratePct%</span>
+                            <span class="ee-muted">response rate</span>
+                        </div>
+                    </div>
+
+                    @if (priorityTags.Count > 0)
+                    {
+                        <div class="feedback-survey-card__tags">
+                            <SfChip aria-label="Survey priority signals">
+                                <ChipItems>
+                                    @foreach (var tag in priorityTags)
+                                    {
+                                        <ChipItem Text="@tag.Text" CssClass="@tag.CssClass" />
+                                    }
+                                </ChipItems>
+                            </SfChip>
+                        </div>
+                    }
+
+                    @if (string.Equals(s.Status, "active", StringComparison.OrdinalIgnoreCase) && !isActive)
+                    {
+                        <div class="feedback-survey-card__actions">
+                            <SfButton CssClass="e-primary"
+                                      OnClick="@(() => OpenResponseForm(s.Id))"
+                                      aria-label="@($"Complete {s.Title}")">
+                                Complete Survey
+                            </SfButton>
+                        </div>
+                    }
+
+                    @if (isActive)
+                    {
+                        <form class="ee-form feedback-survey-form"
+                              @onsubmit="HandleSubmitResponse" @onsubmit:preventDefault
+                              aria-label="@($"Complete {s.Title}")">
+                            <div class="ee-field full">
+                                <label for="pulse-sentiment">Sentiment (−100 to 100)</label>
+                                <SfNumericTextBox TValue="int"
+                                                   Min="-100" Max="100" Step="1" Format="n0"
+                                                   Value="@_sentimentValue"
+                                                   ValueChanged="@(v => _sentimentValue = v)"
+                                                   Placeholder="Sentiment score" />
+                            </div>
+                            <div class="ee-field full">
+                                <label for="pulse-comment">Comment (optional)</label>
+                                <SfTextArea TValue="string"
+                                            Placeholder="Add context that will help HR understand your score…"
+                                            Rows="2"
+                                            Value="@_comment"
+                                            ValueChanged="@(v => _comment = v ?? string.Empty)" />
+                            </div>
+                            <div class="ee-field full feedback-survey-form__actions">
+                                <SfButton CssClass="e-flat" Type="button"
+                                          Disabled="@_submitting"
+                                          OnClick="CancelResponseForm">
+                                    Cancel
+                                </SfButton>
+                                <SfButton CssClass="e-primary" Type="Submit" Disabled="@_submitting">
+                                    @(_submitting ? "Submitting…" : "Submit Response")
+                                </SfButton>
+                            </div>
+                        </form>
+                    }
+                </div>
+            }
+        </div>
+
+        <!-- ── Response-rate chart ─────────────────────────────────── -->
+        @if (_chartData.Count > 0)
+        {
+            <div class="ee-card feedback-chart-card" style="margin-bottom: var(--spacing-20, 20px)">
+                <h3 class="ee-section-title">Response Rates by Active Survey</h3>
+                <div class="feedback-chart-card__body">
+                    <SfAccumulationChart Theme="@_chartTheme" Height="280px" Width="100%">
+                        <AccumulationChartLegendSettings Visible="true"
+                                                         Position="Syncfusion.Blazor.Charts.LegendPosition.Bottom" />
+                        <AccumulationChartTooltipSettings Enable="true" />
+                        <AccumulationChartSeriesCollection>
+                            <AccumulationChartSeries DataSource="@_chartData"
+                                                     XName="Title"
+                                                     YName="ResponseRate"
+                                                     Name="Response Rate"
+                                                     InnerRadius="40%">
+                                <AccumulationDataLabelSettings Visible="true" />
+                            </AccumulationChartSeries>
+                        </AccumulationChartSeriesCollection>
+                    </SfAccumulationChart>
+                </div>
+            </div>
+        }
+
+        <!-- ── Theme sentiment grid ────────────────────────────────── -->
+        @if (_allThemes.Count > 0)
+        {
+            <div class="ee-card feedback-themes-card">
+                <h3 class="ee-section-title">Theme Sentiment</h3>
+                <div style="overflow-x: auto">
+                    <SfGrid TValue="ThemeRow"
+                            DataSource="@_allThemes"
+                            AllowPaging="false"
+                            AllowSorting="true"
+                            Height="auto">
+                        <GridColumns>
+                            <GridColumn Field=@nameof(ThemeRow.Theme) HeaderText="Theme" Width="200" />
+                            <GridColumn Field=@nameof(ThemeRow.Department) HeaderText="Department" Width="160" />
+                            <GridColumn Field=@nameof(ThemeRow.Sentiment) HeaderText="Sentiment" Width="240" TextAlign="TextAlign.Left">
+                                <Template>
+                                    @{ var t = (ThemeRow)context; }
+                                    <SfChip CssClass="@SentimentChipVariant(t.Sentiment)">
+                                        <ChipItems>
+                                            <ChipItem Text="@($"{t.Sentiment} • {SentimentLabel(t.Sentiment)}")" />
+                                        </ChipItems>
+                                    </SfChip>
+                                </Template>
+                            </GridColumn>
+                        </GridColumns>
+                    </SfGrid>
+                </div>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    private List<PulseSurvey> _surveys = new();
+    private List<ChartDatum> _chartData = new();
+    private List<ThemeRow> _allThemes = new();
+    private bool _isLoading = true;
+    private string? _error;
+
+    private string? _activeSurveyId;
+    private int _sentimentValue = 75;
+    private string _comment = string.Empty;
+    private bool _submitting;
+
+    // Chart theme — kept in sync with the user's theme toggle via
+    // ThemeService.Changed. Initial value defaults to light; the real sync
+    // happens in SyncChartTheme() during OnInitialized.
+    private Syncfusion.Blazor.Theme _chartTheme = Syncfusion.Blazor.Theme.Tailwind;
+
+    // Header chips — "X open" / "Y closed" — mirror the React ChipListComponent
+    // in the section header. Rebuilt whenever the survey list changes.
+    private List<ChipModel> _summaryChips = new();
+
+    // Status → Syncfusion chip CSS-class variant (mirrors React's
+    // statusToChip map: active=success, draft=info, closed=outline).
+    private static readonly Dictionary<string, string> StatusChipVariants = new(StringComparer.OrdinalIgnoreCase)
+    {
+        { "active", "e-success" },
+        { "draft", "e-info" },
+        { "closed", "e-outline" },
+    };
+
+    private static string SentimentChipVariant(int sentiment) => sentiment switch
+    {
+        >= 70 => "e-success",
+        >= 40 => "e-warning",
+        _ => "e-danger",
+    };
+
+    private static string SentimentLabel(int sentiment) => sentiment switch
+    {
+        >= 70 => "Positive",
+        >= 40 => "Neutral",
+        _ => "Needs attention",
+    };
+
+    // Response-rate → fill colour (matches the React `rateFill` helper).
+    private static string GetRateFillColor(int rate) => rate switch
+    {
+        >= 75 => "var(--color-sf-success-500, #12B76A)",
+        >= 50 => "var(--color-sf-brand-500, #3B82F6)",
+        _ => "var(--color-sf-warning-500, #F79009)",
+    };
+
+    // Mirror of React's buildMeta — "cadence • N responses • X% response
+    // rate • closes Date" (or "evergreen" when no CloseAt).
+    private static string BuildMeta(PulseSurvey s)
+    {
+        var cadence = string.IsNullOrEmpty(s.Cadence) ? string.Empty : $"{s.Cadence} • ";
+        var responses = $"{s.TotalResponses} response{(s.TotalResponses == 1 ? string.Empty : "s")}";
+        var close = string.IsNullOrEmpty(s.CloseAt)
+            ? " • evergreen"
+            : $" • closes {FormatDate(s.CloseAt!)}";
+        return $"{cadence}{responses} • {(int)Math.Round(s.ResponseRate)}% response rate{close}";
+    }
+
+    private static string FormatDate(string iso)
+    {
+        if (DateTimeOffset.TryParse(iso, out var dt)) return dt.ToLocalTime().ToString("MMM d, yyyy");
+        return iso;
+    }
+
+    private static List<ChipModel> GetPriorityTags(PulseSurvey s)
+    {
+        var tags = new List<ChipModel>();
+        if (!string.IsNullOrEmpty(s.CloseAt)
+            && DateTimeOffset.TryParse(s.CloseAt, out var closeDate))
+        {
+            var daysUntilClose = (int)Math.Ceiling((closeDate - DateTimeOffset.UtcNow).TotalDays);
+            if (daysUntilClose is >= 0 and <= 5)
+            {
+                var dayWord = daysUntilClose == 1 ? "day" : "days";
+                tags.Add(new ChipModel(
+                    Text: $"🔴 Closes in {daysUntilClose} {dayWord}",
+                    CssClass: "e-danger"));
+            }
+        }
+
+        if (s.ResponseRate < 50)
+        {
+            tags.Add(new ChipModel(Text: "⚠️ Low participation", CssClass: "e-danger"));
+        }
+        else if (s.ResponseRate < 75)
+        {
+            tags.Add(new ChipModel(Text: "🟡 Participation below target", CssClass: "e-warning"));
+        }
+
+        if (string.IsNullOrEmpty(s.CloseAt) && s.ResponseRate >= 75)
+        {
+            tags.Add(new ChipModel(Text: "🟢 High impact", CssClass: "e-success"));
+        }
+        return tags;
+    }
+
+    protected override void OnInitialized()
+    {
+        // Subscribe to theme changes so the chart swaps to the dark palette
+        // when the user toggles the page. We sync once here so the first
+        // render after page load already matches the resolved theme.
+        Theme.Changed += OnThemeChanged;
+        SyncChartTheme();
+    }
+
+    private void OnThemeChanged() => SyncChartTheme();
+
+    private void SyncChartTheme()
+    {
+        var next = Theme.Resolved == ThemeService.ResolvedTheme.Dark
+            ? Syncfusion.Blazor.Theme.TailwindDark
+            : Syncfusion.Blazor.Theme.Tailwind;
+        if (next != _chartTheme)
+        {
+            _chartTheme = next;
+            InvokeAsync(StateHasChanged);
+        }
+    }
+
+    public void Dispose() => Theme.Changed -= OnThemeChanged;
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        try
+        {
+            _isLoading = true;
+            _error = null;
+            var data = await EmployeeExperienceService.GetPulseSurveysAsync();
+            _surveys = data.ToList();
+
+            _chartData = _surveys
+                .Where(s => string.Equals(s.Status, "active", StringComparison.OrdinalIgnoreCase))
+                .Select(s => new ChartDatum
+                {
+                    Title = s.Title,
+                    ResponseRate = (int)Math.Round(s.ResponseRate),
+                })
+                .ToList();
+
+            // Header summary chips — "X open" / "Y closed". `closed` means
+            // status === "closed"; `open` is everything else.
+            var open = _surveys.Count(s => !string.Equals(s.Status, "closed", StringComparison.OrdinalIgnoreCase));
+            var closed = _surveys.Count - open;
+            _summaryChips = new List<ChipModel>
+            {
+                new(Text: $"{open} open", CssClass: "e-info"),
+                new(Text: $"{closed} closed", CssClass: "e-outline"),
+            };
+
+            // The server returns Themes per survey, so surface those directly
+            // when present. If no survey has themes, fall back to the
+            // pulse-responses endpoint, which gives us a per-department
+            // (sentiment, department) row to render in the grid below.
+            var themesFromSurveys = _surveys
+                .SelectMany(s => s.Themes.Select(t => new ThemeRow
+                {
+                    Theme = t.Theme,
+                    Department = t.Department,
+                    Sentiment = t.Sentiment,
+                }))
+                .ToList();
+
+            if (themesFromSurveys.Count > 0)
+            {
+                _allThemes = themesFromSurveys;
+            }
+            else
+            {
+                var firstActive = _surveys.FirstOrDefault(s => string.Equals(s.Status, "active", StringComparison.OrdinalIgnoreCase))?.Id;
+                if (firstActive is not null)
+                {
+                    var responses = await EmployeeExperienceService.GetPulseResponsesAsync(firstActive);
+                    _allThemes = responses
+                        .Select(r => new ThemeRow
+                        {
+                            Theme = $"Pulse response ({r.PulseSurveyId})",
+                            Department = r.Department ?? string.Empty,
+                            Sentiment = (int)Math.Round(r.Sentiment),
+                        })
+                        .ToList();
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _error = "Failed to load pulse surveys";
+            Console.Error.WriteLine(ex);
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private void OpenResponseForm(string surveyId)
+    {
+        _activeSurveyId = surveyId;
+        _sentimentValue = 75;
+        _comment = string.Empty;
+    }
+
+    private void CancelResponseForm()
+    {
+        _activeSurveyId = null;
+        _comment = string.Empty;
+        _sentimentValue = 75;
+    }
+
+    private async Task HandleSubmitResponse()
+    {
+        if (string.IsNullOrEmpty(_activeSurveyId)) return;
+        _submitting = true;
+        try
+        {
+            // Server expects sentiment as a decimal in the -100..100 range
+            // (or 1..5 depending on the question). We pass through whatever
+            // the user picked — the NumericTextBox already clamps to -100..100.
+            await EmployeeExperienceService.SubmitPulseResponseAsync(
+                _activeSurveyId,
+                (decimal)_sentimentValue,
+                string.IsNullOrWhiteSpace(_comment) ? null : _comment);
+            _activeSurveyId = null;
+            _comment = string.Empty;
+            _sentimentValue = 75;
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = "Failed to submit pulse response";
+            Console.Error.WriteLine(ex);
+        }
+        finally
+        {
+            _submitting = false;
+        }
+    }
+
+    // ── Local types ────────────────────────────────────────────────
+
+    /// <summary>
+    /// Lightweight view-model for a single <see cref="ChipItem"/>. Mirrors
+    /// the role of <c>ChipDirective</c> in the React version. Kept as a
+    /// positional record so it can be created inline next to its consumers.
+    /// </summary>
+    private sealed record ChipModel(string Text, string CssClass);
+
+    private sealed record ThemeRow
+    {
+        public string Theme { get; init; } = string.Empty;
+        public string Department { get; init; } = string.Empty;
+        public int Sentiment { get; init; }
+    }
+
+    private sealed record ChartDatum
+    {
+        public string Title { get; init; } = string.Empty;
+        public int ResponseRate { get; init; }
+    }
+}

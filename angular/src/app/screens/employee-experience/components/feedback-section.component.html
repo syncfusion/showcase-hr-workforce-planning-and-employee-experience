@@ -1,0 +1,221 @@
+<div class="feedback-section">
+  @if (isLoading()) {
+    <app-loading-state height="320px"></app-loading-state>
+  } @else if (error()) {
+    <app-error-state
+      [message]="error()!"
+      [onRetry]="retryFn"
+      (retry)="retry()"
+    ></app-error-state>
+  } @else if (surveys().length === 0) {
+    <app-empty-state
+      title="No pulse surveys yet"
+      description="When pulse surveys open, you can complete them here and track sentiment themes."
+    ></app-empty-state>
+  } @else {
+    <!-- ── Section header ────────────────────────────────────────────── -->
+    <div class="feedback-section__header">
+      <div>
+        <h3 class="ee-section-title" style="margin: 0;">Pulse Surveys</h3>
+        <div class="ee-muted" style="margin-top: 2px;">
+          Capture how the team feels and act on emerging themes.
+        </div>
+      </div>
+      <ejs-chiplist aria-label="Survey summary">
+        <e-chips>
+          <e-chip text="{{ openCount() }} open" cssClass="e-info"></e-chip>
+          <e-chip text="{{ closedCount() }} closed" cssClass="e-outline"></e-chip>
+        </e-chips>
+      </ejs-chiplist>
+    </div>
+
+    <!-- ── Survey cards ──────────────────────────────────────────────── -->
+    <div class="ee-list" style="margin-bottom: 24px;">
+      @for (s of surveys(); track s.id) {
+        @let priorityTags = tagsFor(s);
+        @let statusClass = statusVariant(s);
+        @let isActive = activeSurveyId() === s.id;
+        <div
+          class="ee-card feedback-survey-card"
+          [class.is-active]="isActive"
+        >
+          <div class="feedback-survey-card__head">
+            <div class="feedback-survey-card__title-block">
+              <div class="feedback-survey-card__title">{{ s.title }}</div>
+              <div class="ee-muted feedback-survey-card__meta">
+                {{ buildMeta(s) }}
+              </div>
+            </div>
+            <ejs-chiplist aria-label="Survey status">
+              <e-chips>
+                <e-chip [text]="s.status" [cssClass]="statusClass"></e-chip>
+              </e-chips>
+            </ejs-chiplist>
+          </div>
+
+          <!-- Response rate progress -->
+          <div
+            class="feedback-rate"
+            role="meter"
+            aria-valuemin="0"
+            aria-valuemax="100"
+            aria-valuenow="{{ s.responseRate }}"
+            aria-label="{{ s.title }} response rate"
+          >
+            <div class="feedback-rate__track">
+              <div
+                class="feedback-rate__fill"
+                [style.width.%]="clampRate(s.responseRate)"
+                [style.background]="rateFill(s.responseRate)"
+              ></div>
+            </div>
+            <div class="feedback-rate__label">
+              <span>{{ s.responseRate }}%</span>
+              <span class="ee-muted">response rate</span>
+            </div>
+          </div>
+
+          @if (priorityTags.length > 0) {
+            <div class="feedback-survey-card__tags">
+              <ejs-chiplist aria-label="Survey priority signals">
+                <e-chips>
+                  @for (tag of priorityTags; track tag.label) {
+                    <e-chip
+                      [text]="tag.icon + ' ' + tag.label"
+                      [cssClass]="tag.variant"
+                      [title]="tag.title ?? null"
+                    ></e-chip>
+                  }
+                </e-chips>
+              </ejs-chiplist>
+            </div>
+          }
+
+          @if (s.status === 'active' && !isActive) {
+            <div class="feedback-survey-card__actions">
+              <button
+                type="button"
+                class="e-btn e-primary"
+                (click)="startSurvey(s.id)"
+                [attr.aria-label]="'Complete ' + s.title"
+              >
+                Complete Survey
+              </button>
+            </div>
+          }
+
+          @if (isActive) {
+            <form
+              class="ee-form feedback-survey-form"
+              (submit)="handleSubmitResponse($event)"
+              [attr.aria-label]="'Complete ' + s.title"
+            >
+              <div class="ee-field full">
+                <label for="pulse-sentiment">Sentiment (−100 to 100)</label>
+                <ejs-numerictextbox
+                  id="pulse-sentiment"
+                  [value]="sentimentValue()"
+                  (change)="onSentimentChange($any($event).value)"
+                  [min]="-100"
+                  [max]="100"
+                  format="n0"
+                  placeholder="Sentiment score"
+                ></ejs-numerictextbox>
+              </div>
+              <div class="ee-field full">
+                <label for="pulse-comment">Comment (optional)</label>
+                <ejs-textarea
+                  id="pulse-comment"
+                  [value]="comment()"
+                  (input)="onCommentInput($any($event).value)"
+                  placeholder="Add context that will help HR understand your score…"
+                  [rows]="2"
+                ></ejs-textarea>
+              </div>
+              <div class="ee-field full feedback-survey-form__actions">
+                <button
+                  type="button"
+                  class="e-btn e-flat"
+                  (click)="cancelSurvey()"
+                  [disabled]="submitting()"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  class="e-btn e-primary"
+                  [disabled]="submitting()"
+                >
+                  {{ submitting() ? 'Submitting…' : 'Submit Response' }}
+                </button>
+              </div>
+            </form>
+          }
+        </div>
+      }
+    </div>
+
+    <!-- ── Response-rate chart ──────────────────────────────────────── -->
+    @if (chartData().length > 0) {
+      <div class="ee-card feedback-chart-card" style="margin-bottom: 20px;">
+        <h3 class="ee-section-title">Response Rates by Active Survey</h3>
+        <div class="feedback-chart-card__body">
+          <ejs-accumulationchart
+            id="ee-response-chart"
+            height="280px"
+            width="100%"
+            [tooltip]="{ enable: true }"
+            [legendSettings]="{ visible: true }"
+          >
+            <e-accumulation-series-collection>
+              <e-accumulation-series
+                [dataSource]="chartData()"
+                type="Pie"
+                xName="x"
+                yName="y"
+                [innerRadius]="pieInnerRadius"
+                [dataLabel]="pieDataLabel"
+              ></e-accumulation-series>
+            </e-accumulation-series-collection>
+          </ejs-accumulationchart>
+        </div>
+      </div>
+    }
+
+    <!-- ── Theme sentiment grid ─────────────────────────────────────── -->
+    @if (allThemes().length > 0) {
+      <div class="ee-card feedback-themes-card">
+        <h3 class="ee-section-title">Theme Sentiment</h3>
+        <div class="feedback-themes-card__grid">
+          <ejs-grid
+            [dataSource]="allThemes()"
+            [allowPaging]="false"
+            [allowSorting]="true"
+            height="auto"
+          >
+            <e-columns>
+              <e-column field="theme" headerText="Theme"></e-column>
+              <e-column field="department" headerText="Department"></e-column>
+              <e-column
+                field="sentiment"
+                headerText="Sentiment"
+                textAlign="Center"
+              >
+                <ng-template #template let-data>
+                  <ejs-chiplist>
+                    <e-chips>
+                      <e-chip
+                        [text]="data.sentiment + ' • ' + sentimentText(data.sentiment)"
+                        [cssClass]="sentimentVariant(data.sentiment)"
+                      ></e-chip>
+                    </e-chips>
+                  </ejs-chiplist>
+                </ng-template>
+              </e-column>
+            </e-columns>
+          </ejs-grid>
+        </div>
+      </div>
+    }
+  }
+</div>

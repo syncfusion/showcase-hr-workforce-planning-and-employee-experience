@@ -1,0 +1,112 @@
+/* KpiCard — structural styles only.
+   Card chrome (background, border, radius, shadow, hover transition) is
+   supplied by the global `.kpi-grid .e-card` override in
+   overview.component.css, mirroring the React port (KpiCard.tsx) which
+   uses bare `e-card` / `e-card-header` / `e-card-content` from the
+   Syncfusion theme. */
+
+:host {
+  display: block;
+  height: 100%;
+}
+
+/* Risk highlight overlay — applied on top of the global e-card chrome. */
+.kpi-card--risk {
+  border-color: var(--color-sf-error-300) !important;
+  box-shadow: 0 0 0 1px var(--color-sf-error-100), var(--shadow-default) !important;
+}
+.kpi-card--clickable {
+  cursor: pointer;
+}
+
+/* Header row (title + risk badge). e-card-header supplies the padding
+   and bottom border from the EJ2 theme; we only need the flex layout. */
+.e-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 20px;
+}
+
+.kpi-card__title {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--color-sf-fg-tertiary);
+}
+
+/* HIGH RISK chip — strip default margins so the chip sits flush inside
+   the card header. The class is applied on <ejs-chiplist> and Syncfusion
+   forwards it to both the wrapper and the inner .e-chip. */
+.risk-chip,
+.risk-chip .e-chip {
+  margin: 0 !important;
+}
+
+/* Body layout (value+chip row + sparkline + context). */
+.e-card-content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 18px 20px;
+}
+
+.kpi-card__value-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  /* min-width:0 keeps the sparkline inside the card when the long
+     "▲ +24 since last month" chip would otherwise push it off the edge. */
+  min-width: 0;
+}
+
+.kpi-card__value-col {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.kpi-card__value {
+  font-size: 32px;
+  font-weight: 700;
+  color: var(--color-sf-fg-primary);
+  line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kpi-card__value--risk {
+  color: var(--color-sf-error-600);
+}
+
+/* Chip wrapper — sizes to the chip's natural width and refuses to
+   shrink so the full "▲ +24 since last month" label stays visible. */
+.kpi-card__change {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  flex-shrink: 0;
+  white-space: nowrap;
+  margin-left: 0;
+}
+
+.kpi-card__sparkline {
+  /* Fixed flex-basis (no grow / no shrink) and a clamp()ed width keeps
+     the sparkline between 56px and 100px so the value+chip cell has
+     enough room to render the full delta label without truncation. */
+  flex: 0 0 clamp(56px, 22%, 100px);
+  min-width: 0;
+  height: 40px;
+}
+
+.kpi-card__context {
+  font-size: 12px;
+  color: var(--color-sf-fg-quaternary);
+  line-height: 1.5;
+}

@@ -1,0 +1,31 @@
+/* You can add global styles to this file, and also import other style files */
+
+@import 'tailwindcss';
+@import './styles/tokens.css';
+@import '../node_modules/@syncfusion/ej2-base/styles/tailwind3.css';  
+@import '../node_modules/@syncfusion/ej2-buttons/styles/tailwind3.css';  
+@import '../node_modules/@syncfusion/ej2-dropdowns/styles/tailwind3.css';  
+@import '../node_modules/@syncfusion/ej2-inputs/styles/tailwind3.css';  
+@import '../node_modules/@syncfusion/ej2-navigations/styles/tailwind3.css';
+@import '../node_modules/@syncfusion/ej2-popups/styles/tailwind3.css';
+@import '../node_modules/@syncfusion/ej2-splitbuttons/styles/tailwind3.css';
+@import '../node_modules/@syncfusion/ej2-notifications/styles/tailwind3.css';
+@import "../node_modules/@syncfusion/ej2-angular-grids/styles/tailwind3.css";
+@import "../node_modules/@syncfusion/ej2-angular-buttons/styles/tailwind3.css";
+@import '../node_modules/@syncfusion/ej2-angular-navigations/styles/tailwind3.css';
+@import '../node_modules/@syncfusion/ej2-angular-layouts/styles/tailwind3.css';
+@import "../node_modules/@syncfusion/ej2-grids/styles/tailwind3.css";
+@import "../node_modules/@syncfusion/ej2-layouts/styles/tailwind3.css";
+@import '../node_modules/@syncfusion/ej2-kanban/styles/tailwind3.css';
+@import '../node_modules/@syncfusion/ej2-diagrams/styles/tailwind3.css';
+
+/* Global element defaults */
+html, body {
+  height: 100%;
+  margin: 0;
+  background: var(--color-sf-bg-secondary);
+  color: var(--color-sf-fg-primary);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}

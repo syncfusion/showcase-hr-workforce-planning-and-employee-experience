@@ -1,0 +1,96 @@
+/* Navigation — matches the inline <style> block from src/components/Navigation.tsx */
+
+.e-sidebar {
+  background: var(--color-sf-bg-primary);
+  border-right: 1px solid var(--color-sf-border-secondary);
+  display: flex;
+  flex-direction: column;
+}
+
+.sidebar-header {
+  display: flex;
+  align-items: center;
+  height: 64px;
+  padding: 0 12px;
+  border-bottom: 1px solid var(--color-sf-border-secondary);
+}
+
+.sidebar-title {
+  font-weight: 600;
+  font-size: 18px;
+  color: var(--color-sf-fg-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  flex: 1;
+}
+
+.sidebar-logo {
+  font-weight: 700;
+  font-size: 20px;
+  color: var(--color-sf-fg-primary);
+  width: 100%;
+  text-align: center;
+}
+
+.sidebar-nav {
+  display: flex;
+  flex-direction: column;
+  padding: 12px;
+  gap: 4px;
+  flex: 1;
+}
+
+.sidebar-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  height: 64px;
+  padding: 0 12px;
+  border-top: 1px solid var(--color-sf-border-secondary);
+}
+
+.sidebar-toggle {
+  flex-shrink: 0;
+  color: var(--color-sf-fg-primary);
+}
+
+.sidebar-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 40px;
+  padding: 0 10px;
+  border-radius: 6px;
+  color: var(--color-sf-fg-quaternary);
+  text-decoration: none;
+  font-weight: 500;
+  transition: background 0.2s, color 0.2s;
+  white-space: nowrap;
+}
+
+.sidebar-nav-item:hover {
+  background: rgba(var(--color-sf-brand-600-rgb), 0.08);
+  color: var(--color-sf-fg-brand-primary);
+}
+
+.sidebar-nav-item.active {
+  background: var(--color-sf-bg-brand-solid);
+  color: #fff;
+}
+
+.sidebar-nav-item.active:hover {
+  background: var(--color-sf-bg-brand-solid-hover);
+  color: #fff;
+}
+
+.sidebar-icon {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+}
+
+.sidebar-label {
+  white-space: nowrap;
+  overflow: hidden;
+}

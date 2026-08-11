@@ -1,0 +1,68 @@
+<ejs-dialog
+  #dlg
+  header="✍️ New Self-Service Request"
+  width="520px"
+  [isModal]="true"
+  [showCloseIcon]="true"
+  [closeOnEscape]="true"
+  [visible]="visible()"
+  [buttons]="footerButtons()"
+  (close)="close()"
+>
+  @if (success()) {
+    <p class="ee-success-msg" role="status">
+      ✅ Request submitted. HR has been notified and will route it to the right team.
+    </p>
+  } @else {
+    <div class="ee-form">
+      <div class="ee-field">
+        <label for="ss-type">Type</label>
+        <ejs-dropdownlist
+          id="ss-type"
+          [dataSource]="typeOptions"
+          [fields]="{ text: 'label', value: 'value' }"
+          [value]="form.type"
+          (change)="onTypeChange($any($event).value)"
+          placeholder="Select type"
+        ></ejs-dropdownlist>
+      </div>
+      <div class="ee-field">
+        <label for="ss-priority">Priority</label>
+        <ejs-dropdownlist
+          id="ss-priority"
+          [dataSource]="priorityOptions"
+          [fields]="{ text: 'label', value: 'value' }"
+          [value]="form.priority"
+          (change)="onPriorityChange($any($event).value)"
+          placeholder="Select priority"
+        ></ejs-dropdownlist>
+      </div>
+      <div class="ee-field full">
+        <label for="ss-subject">Subject</label>
+        <ejs-textbox
+          id="ss-subject"
+          name="subject"
+          [ngModel]="form.subject"
+          (ngModelChange)="onSubjectInput($event)"
+          placeholder="Short summary, e.g. Update home address"
+        ></ejs-textbox>
+      </div>
+      <div class="ee-field full">
+        <label for="ss-details">Details</label>
+        <ejs-textarea
+          id="ss-details"
+          name="details"
+          [ngModel]="form.details"
+          (ngModelChange)="onDetailsInput($event)"
+          placeholder="Add the context HR needs to action this quickly"
+          [rows]="4"
+        ></ejs-textarea>
+      </div>
+      @if (error()) {
+        <div class="ee-field full">
+          <span class="error" role="alert">{{ error() }}</span>
+        </div>
+      }
+    </div>
+  }
+</ejs-dialog>

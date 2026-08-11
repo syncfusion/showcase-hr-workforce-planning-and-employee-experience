@@ -1,0 +1,48 @@
+/* Layout — matches the inline <style> block from src/components/Layout.tsx */
+
+:host { display: block; }
+
+.app-layout {
+  position: relative;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: row;
+  background: var(--color-sf-bg-secondary);
+}
+
+/*
+ * The Syncfusion Sidebar is position: fixed, so it floats above the flex
+ * container instead of participating in it. The default state is the
+ * sidebar being open (width="220px"); when it docks, it collapses to
+ * dockSize="60px". The layout component mirrors the navigation's
+ * isOpen() signal onto a .sidebar-docked host class — a plain class
+ * selector is used here (not :host-context) because <app-navigation> is
+ * a sibling of <main>, not an ancestor of <app-layout>.
+ */
+.main-content {
+  flex: 1;
+  min-width: 0;
+  padding: 24px;
+  margin-left: 220px; /* sidebar open (default) */
+  /* Match the Syncfusion Sidebar's animation curve and duration so the
+   * main content slides in lock-step with the sidebar — no perceptible
+   * lag. Disable the transition on initial paint via :host(.no-anim)
+   * to avoid a one-time animation flicker on first load. */
+  transition: margin-left 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  will-change: margin-left;
+}
+
+:host(.sidebar-docked) .main-content {
+  margin-left: 60px; /* sidebar docked */
+}
+
+:host(.no-anim) .main-content {
+  transition: none;
+}
+
+
+@media (max-width: 768px) {
+  .main-content {
+    padding: 16px;
+  }
+}

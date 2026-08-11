@@ -1,0 +1,90 @@
+<ejs-dialog
+  #dlg
+  header="⏱ Raise a Delay Concern"
+  width="500px"
+  [isModal]="true"
+  [showCloseIcon]="true"
+  [closeOnEscape]="true"
+  [visible]="visible()"
+  [buttons]="footerButtons()"
+  (close)="close()"
+>
+  @if (success()) {
+    <p class="ee-success-msg" role="status">
+      ✅ Delay concern raised. It has been added to the Kanban board and People Ops has been notified.
+    </p>
+  } @else {
+    <div class="ee-form">
+      <div class="ee-field">
+        <label for="delay-type">Related To</label>
+        <ejs-dropdownlist
+          id="delay-type"
+          [dataSource]="relatedTypeOptions"
+          [fields]="{ text: 'label', value: 'value' }"
+          [value]="form().relatedEntityType"
+          (change)="onRelatedTypeChange($any($event).value)"
+        ></ejs-dropdownlist>
+      </div>
+      <div class="ee-field">
+        <label for="delay-entity-id">Related ID (optional)</label>
+        <ejs-textbox
+          id="delay-entity-id"
+          [value]="form().relatedEntityId"
+          (input)="onEntityIdInput($any($event).value)"
+          placeholder="e.g., ssr_1024"
+        ></ejs-textbox>
+      </div>
+      <div class="ee-field full">
+        <label for="delay-subject">Subject</label>
+        <ejs-textbox
+          id="delay-subject"
+          [value]="form().subject"
+          (input)="onSubjectInput($any($event).value)"
+        ></ejs-textbox>
+      </div>
+      <div class="ee-field full">
+        <label for="delay-details">Details</label>
+        <ejs-textarea
+          id="delay-details"
+          [value]="form().details"
+          (input)="onDetailsInput($any($event).value)"
+          [rows]="3"
+        ></ejs-textarea>
+      </div>
+      <div class="ee-field">
+        <label for="delay-days">Days Waiting</label>
+        <ejs-numerictextbox
+          id="delay-days"
+          [value]="form().daysWaiting"
+          [min]="0"
+          (change)="onDaysWaitingChange($any($event).value)"
+        ></ejs-numerictextbox>
+      </div>
+      <div class="ee-field">
+        <label for="delay-slack">Expected SLA Days (optional)</label>
+        <ejs-numerictextbox
+          id="delay-slack"
+          [value]="expectedSlackNumeric"
+          [min]="0"
+          format="n0"
+          (change)="onExpectedSlackChange($any($event).value)"
+        ></ejs-numerictextbox>
+      </div>
+      <div class="ee-field">
+        <label for="delay-severity">Severity</label>
+        <ejs-dropdownlist
+          id="delay-severity"
+          [dataSource]="severityOptions"
+          [fields]="{ text: 'label', value: 'value' }"
+          [value]="form().severity"
+          (change)="onSeverityChange($any($event).value)"
+        ></ejs-dropdownlist>
+      </div>
+      @if (error()) {
+        <div class="ee-field full">
+          <span class="error" role="alert">{{ error() }}</span>
+        </div>
+      }
+    </div>
+  }
+</ejs-dialog>
